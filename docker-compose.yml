@@ -1,0 +1,47 @@
+# Local single-user stack; frontend arrives in Milestone 8.
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: scholargraph
+      POSTGRES_USER: scholargraph
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scholargraph -d scholargraph"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  backend:
+    build: ./backend
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DATABASE_URL: postgresql+psycopg://scholargraph:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/scholargraph
+      UPLOAD_DIR: /data/uploads
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-25}
+      MAX_PDF_PAGES: ${MAX_PDF_PAGES:-500}
+      MAX_EXTRACTED_CHARS: ${MAX_EXTRACTED_CHARS:-2000000}
+      CHUNK_SIZE_TOKENS: ${CHUNK_SIZE_TOKENS:-400}
+      CHUNK_OVERLAP_TOKENS: ${CHUNK_OVERLAP_TOKENS:-60}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      EMBEDDING_REVISION: ${EMBEDDING_REVISION:-main}
+      EMBEDDING_DEVICE: cpu
+      EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-32}
+      EMBEDDING_CACHE_DIR: /data/models
+      EMBEDDING_LOCAL_FILES_ONLY: ${EMBEDDING_LOCAL_FILES_ONLY:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/data/uploads
+      - model_cache:/data/models
+    init: true
+volumes:
+  postgres_data:
+  uploads:
+  model_cache:

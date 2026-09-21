@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+# Secrets (keep the documented template)
+.env
+.env.*
+!.env.example
+# Frontend
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+# Private inputs and generated data
+*.pdf
+data/
+uploads/
+embeddings/
+*.npy
+*.npz
+pgdata/
+*.db
+*.sqlite
+*.sqlite3
+reports/
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log

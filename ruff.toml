@@ -1,0 +1,2 @@
+# Use the backend's lint policy for repository-level scripts as well.
+extend = "backend/pyproject.toml"
