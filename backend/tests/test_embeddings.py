@@ -113,3 +113,15 @@ def test_real_model_upload_and_semantic_search(
         assert result.json()["results"][0]["paper_id"] == battery.json()["id"]
         assert result.json()["excluded_chunk_count"] == 0
         assert result.json()["embedding_dimensions"] == 384
+        for mode in ("bm25", "hybrid"):
+            result = client.post(
+                "/api/search",
+                json={
+                    "query": "lithium ion charging",
+                    "mode": mode,
+                    "top_k": 1,
+                    "diagnostics": True,
+                },
+            )
+            assert result.status_code == 200, result.text
+            assert result.json()["results"][0]["paper_id"] == battery.json()["id"]

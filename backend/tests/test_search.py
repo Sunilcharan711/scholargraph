@@ -94,7 +94,7 @@ def test_top_k_empty_and_stable_ties(
         {"query": "x" * 2001},
         {"query": "x", "top_k": 0},
         {"query": "x", "top_k": 51},
-        {"query": "x", "mode": "bm25"},
+        {"query": "x", "mode": "unsupported"},
         {"query": "x", "paper_ids": ["invalid"]},
         {"query": "x", "paper_ids": [str(uuid4())] * 101},
     ],

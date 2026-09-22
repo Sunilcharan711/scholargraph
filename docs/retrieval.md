@@ -1,4 +1,4 @@
-# Dense retrieval — Milestone 2
+# Retrieval — Milestones 2 and 3
 
 ## Embedding contract
 
@@ -98,7 +98,7 @@ Milestone 9. It establishes basic behavior, not general research retrieval quali
 
 Dense-only search can miss exact acronyms, names, and uncommon technical terms. Queries
 without relevant material still return nearest neighbors; there is no relevance cutoff.
-BM25 and hybrid retrieval are reserved for Milestone 3. Multilingual, domain-specific,
+BM25 and hybrid retrieval are now available as complementary methods. Multilingual, domain-specific,
 and prompt-dependent models need separate compatibility and quality checks.
 
 When excluded_chunk_count is nonzero, run indexing for the desired model/revision.
@@ -111,3 +111,46 @@ before enabling EMBEDDING_LOCAL_FILES_ONLY; partial caches fail explicitly.
 - [SentenceTransformer API](https://www.sbert.net/docs/package_reference/sentence_transformer/model.html)
 - [Sentence Transformers embedding and sequence-length guidance](https://www.sbert.net/examples/sentence_transformer/applications/computing-embeddings/README.html)
 - [pgvector operators, exact search, and mixed dimensions](https://github.com/pgvector/pgvector)
+
+## BM25 implementation
+
+A small typed implementation avoids an additional runtime dependency. Tokenization uses
+Unicode NFKC normalization, case folding, and word tokens. Punctuation separates terms
+(e.g. BERT-base becomes bert and base). No stemming, stop-word removal, phrase operator,
+or query-language parsing is applied. Repeated query terms contribute only once.
+
+For term t: IDF = ln(1 + (N - df(t) + 0.5)/(df(t) + 0.5)).
+Term score = IDF * tf * (k1+1) / (tf + k1*(1-b+b*length/avg_length)).
+Defaults: k1=1.5, b=0.75. Scores sum over matching terms. Positive IDF avoids negative
+scores in tiny collections. Empty/tokenless/nonmatching queries produce no lexical hits.
+Tests check a hand-calculated score, length normalization, and term-frequency saturation.
+
+Each request reads selected ready chunk text and recomputes statistics; it neither loads
+vectors nor keeps a cache. Committed uploads/deletions are visible on the next request.
+This is deliberately a small-corpus baseline: CPU/memory cost grows with selected text
+volume. Candidate limits bound fusion work, not the cost of scanning/tokenizing the corpus.
+Scores change when the selected corpus changes. They are not comparable across queries.
+
+## Shared retrieval and RRF
+
+Retriever.retrieve(session, request, limit) returns typed RetrievalBatch/ RetrievalHit data.
+DenseRetriever and BM25Retriever implement the same contract. The search service owns
+mode dispatch, diagnostics, timing and response assembly, ready for reuse in later RAG.
+
+Hybrid runs both retrievers with a candidate budget of max(top_k, SEARCH_CANDIDATE_LIMIT).
+It does not truncate each list to the final top_k before fusion. Each chunk contributes
+at most once per method, with one-based ranks: RRF(chunk) = sum(1/(RRF_K + rank)).
+Default RRF_K=60 limits domination by a single top-ranked result; it is configurable,
+not claimed as optimal for this dataset. Methods have equal weight. Final ties sort by
+chunk UUID. Raw BM25/cosine scores never get added to each other.
+
+Both methods filter papers/status consistently. Dense additionally requires a compatible
+embedding space; BM25 can contribute legacy or other-model chunks. A missing rank means
+not present in that candidate list, not proof of zero relevance. Hybrid model failures
+return errors rather than presenting a silent single-method fallback as hybrid success.
+The two legs use sequential database reads; concurrent changes can be observed between
+legs under default PostgreSQL isolation. Strict snapshot consistency is not promised.
+
+The API exposes separate raw-score/rank diagnostics and stage timings. This milestone
+has correctness tests and small real-model smoke checks, not a retrieval benchmark or
+proof that hybrid universally outperforms either method. Milestone 9 will measure that.

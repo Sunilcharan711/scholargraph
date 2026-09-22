@@ -79,6 +79,19 @@ def test_postgres_migrations_and_ingestion(
                 assert search.status_code == 200, search.text
                 assert len(search.json()["results"]) == 2
                 assert search.json()["results"][0]["similarity_score"] == pytest.approx(1)
+                for mode in ("bm25", "hybrid"):
+                    result = client.post(
+                        "/api/search",
+                        json={
+                            "query": "retrieval",
+                            "mode": mode,
+                            "paper_ids": [paper_id],
+                            "diagnostics": True,
+                        },
+                    )
+                    assert result.status_code == 200, result.text
+                    assert result.json()["results"]
+                    assert all(r["paper_id"] == paper_id for r in result.json()["results"])
                 # Exercise downgrade with populated vectors, then restore schema and reindex.
                 with scoped.begin() as connection:
                     migration.attributes["connection"] = connection

@@ -4,15 +4,18 @@ An AI research intelligence system for searching, comparing, and reasoning acros
 
 ## Development status
 
-**Milestone 2: embeddings and dense retrieval implemented.** The backend supports
-safe PDF upload, heuristic metadata extraction, page/section-aware chunks, paginated
-paper browsing, retryable deletion, local sentence-transformer embeddings, and semantic search.
-Milestones 3–13 remain planned.
+**Local demo implemented:** PDF library, dense/BM25/hybrid search, a responsive
+Next.js interface, and Ollama answers with validated source IDs and page citations.
+Run the demo using [the setup and walkthrough](docs/demo.md).
 
-Local SQLite-backed API tests exercise ingestion and cleanup. PostgreSQL/pgvector
-migrations and an opt-in integration test are included, but a live PostgreSQL server
-and Docker are unavailable in this environment. See [Milestone 2 verification](docs/milestone-2.md)
-for exactly what was run, including real MiniLM inference. The frontend remains a placeholder.
+![Real local search interface](docs/images/search-desktop.png)
+
+The demo uses an explicitly labeled SQLite adapter with real MiniLM embeddings.
+PostgreSQL/pgvector and Docker remain unverified locally. The small Ollama model
+produced a live answer, but its wording and citation selection need further quality
+work. This is a working development demo, not a finished research product.
+
+See [verification and evaluation](docs/evaluation.md) for measured results and limits.
 
 ## Features
 
@@ -27,9 +30,12 @@ Available:
 - Configurable, local sentence-transformer embeddings during ingestion.
 - Exact cosine semantic search with paper filters, provenance, and timing diagnostics.
 - Model/revision/dimension isolation and explicit backfill for existing paper chunks.
+- BM25 keyword search and hybrid Reciprocal Rank Fusion with optional rank/score diagnostics.
 
-Planned: BM25, hybrid fusion, optional reranking, citation-grounded
-answers, multi-paper comparison, related papers, an interactive graph, and evaluation.
+Available demo additions: local Ollama answers, deterministic citation mapping, PDF page viewing,
+a responsive Next.js library/search/Q&A interface, sample documents, and a small retrieval evaluation.
+
+Planned: optional reranking, multi-paper comparison, related papers, and an interactive graph.
 
 ## Architecture
 
@@ -39,7 +45,7 @@ flowchart LR
     Parser --> Chunks[Page and section-aware chunker]
     Chunks --> DB[(PostgreSQL)]
     Chunks --> Embeddings --> pgvector --> Dense[Exact cosine search]
-    Chunks -. Milestone 3 .-> BM25
+    Chunks --> BM25
     pgvector --> Fusion[Hybrid retrieval / RRF]
     BM25 --> Fusion
     Fusion --> Reranker[Optional reranker] --> LLM[Provider abstraction]
@@ -48,9 +54,7 @@ flowchart LR
 
 Current stack: Python 3.11+, FastAPI, Pydantic Settings, SQLAlchemy 2, Alembic,
 psycopg, PostgreSQL/pgvector, PyMuPDF, sentence-transformers, PyTorch, pytest, httpx, and Ruff.
-Planned frontend: Next.js, TypeScript, Tailwind, shadcn/ui where practical, and an
-interactive graph library. Planned retrieval: BM25, RRF,
-and an optional cross-encoder. Docker and GitHub Actions follow the milestone roadmap.
+Frontend: Next.js, React, TypeScript, and responsive CSS. BM25 and RRF run locally; optional cross-encoder reranking remains planned. Docker configuration and GitHub Actions checks are included; execution status is documented below.
 
 ## Repository structure
 
@@ -71,7 +75,7 @@ backend/
   pyproject.toml  Dependencies and tool configuration
   uv.lock         Resolved development dependencies
   Dockerfile
-frontend/         Explicit placeholder
+frontend/         Next.js research workspace and browser tests
 scripts/          Real-model/API smoke check and explicit paper indexing
 docs/             API, architecture, and milestone verification notes
 ```
@@ -152,7 +156,7 @@ docker compose up --build
 
 Compose configures PostgreSQL/pgvector, waits for database health, runs migrations,
 and starts the backend. Database, upload, and model-cache data use separate named volumes. Ports
-bind only to localhost. There is no frontend service yet. **This configuration has
+bind only to localhost. The frontend is served on localhost:3000. **This configuration has
 not been executed locally because Docker is unavailable.** The single-backend migration
 startup is intended for local use; coordinate migrations separately before scaling replicas.
 
@@ -175,11 +179,14 @@ Search request, sent as JSON to `POST /api/search`:
   "query": "What limitations do the authors discuss?",
   "paper_ids": [],
   "top_k": 10,
-  "mode": "dense"
+  "mode": "hybrid",
+  "diagnostics": true
 }
 ```
 
-Results contain paper/chunk IDs, title, page, section, a snippet, and cosine similarity.
+Results contain paper/chunk IDs, title, page, section, a snippet, and a mode-specific score.
+Use `dense`, `bm25`, or `hybrid`. `score_type` distinguishes cosine, BM25, and RRF scores.
+The existing `similarity_score` field remains populated only for dense mode.
 Responses also report active model identity, indexed/excluded chunk counts, and latency.
 Scores are similarities, not calibrated confidence. See [retrieval design](docs/retrieval.md).
 
@@ -201,11 +208,14 @@ not the shell working directory. Existing Milestone 0 users should change
 | MAX_EXTRACTED_CHARS | 2000000 |
 | CHUNK_SIZE_TOKENS | 400 approximate tokens |
 | CHUNK_OVERLAP_TOKENS | 60; must be smaller than chunk size |
-| LLM_PROVIDER / LLM_API_KEY / CHAT_MODEL | Empty; reserved for future generation |
+| LLM_PROVIDER / CHAT_MODEL | ollama / qwen2.5:1.5b in the template; local generation |
+| OLLAMA_URL | http://127.0.0.1:11434 for the native backend |
 | EMBEDDING_MODEL | sentence-transformers/all-MiniLM-L6-v2; configurable Hub repository ID |
 | EMBEDDING_REVISION | main; resolved commit is recorded with each vector |
 | EMBEDDING_DEVICE | cpu; native runtimes may select another supported device |
 | EMBEDDING_BATCH_SIZE | 32 |
+| SEARCH_CANDIDATE_LIMIT | 50 candidates per method for hybrid, at least top_k; maximum 200 |
+| RRF_K | 60; positive rank-fusion constant |
 | EMBEDDING_CACHE_DIR | data/models, relative to repository root |
 | EMBEDDING_LOCAL_FILES_ONLY | false; set true after the model cache is populated |
 | RERANKER_MODEL | Empty; reserved for a future milestone |
@@ -222,7 +232,7 @@ uv run --project backend ruff format --check backend scripts
 
 The normal suite generates original tiny PDFs in temporary directories and uses
 SQLite with foreign keys enabled for database-backed API tests. PostgreSQL is the
-only supported production database; the SQLite vector-to-JSON variant is test-only.
+only supported production database; the SQLite vector-to-JSON variant is used by tests and the explicit local demo launcher.
 Most tests inject deterministic vectors and a test-only cosine SQL function. They
 exercise the production search statement's joins and filters, but not pgvector itself.
 
@@ -267,8 +277,10 @@ and deliberately leaves that shared extension installed.
   vector indexes are deferred until corpus size and recall/latency measurements justify them.
 - Long chunks are split into model-token-budgeted windows, then combined using a
   token-weighted mean and normalized. Every window contributes without changing chunk IDs.
-- Hybrid retrieval is planned because exact terms and semantic similarity have different
-  strengths; RRF combines ranks without assuming raw scores have comparable scales.
+- Hybrid retrieval combines exact terms and semantic matches using equal-weight RRF.
+  It merges bounded candidate lists by chunk ID and sorts ties deterministically.
+- A small transparent BM25 implementation uses positive IDF and recomputes selected-corpus
+  statistics per query. No cache invalidation is required; larger corpora need a persistent index.
 
 ## Limitations and Failure Cases
 
@@ -305,20 +317,20 @@ applied. Arbitrary model compatibility is not guaranteed. See [retrieval notes](
 | 0 | Foundation, settings, health API | Verified |
 | 1 | Database schema and PDF ingestion | Implemented; live PostgreSQL verification pending |
 | 2 | Embeddings and dense retrieval | Implemented; real model verified, live pgvector pending |
-| 3 | BM25 and hybrid retrieval | Planned |
+| 3 | BM25 and hybrid retrieval | Implemented; local and real-model tests passed, live PostgreSQL pending |
 | 4 | Optional cross-encoder reranking | Planned |
-| 5 | Citation-grounded RAG | Planned |
+| 5 | Citation-grounded RAG | Local provider and citation validation implemented; answer quality needs further work |
 | 6 | Multi-paper comparison | Planned |
 | 7 | Related papers and graph | Planned |
-| 8 | Next.js frontend | Planned |
-| 9 | Retrieval, generation, and latency evaluation | Planned |
-| 10 | Broader testing and quality | Planned |
-| 11 | Full Docker Compose stack | Planned |
-| 12 | GitHub Actions | Planned |
+| 8 | Next.js frontend | Demo library, search, answers and evidence implemented |
+| 9 | Retrieval, generation, and latency evaluation | Small synthetic retrieval check; broader evaluation pending |
+| 10 | Broader testing and quality | Backend and desktop/mobile regression checks added |
+| 11 | Full Docker Compose stack | Configuration added; local execution pending |
+| 12 | GitHub Actions | Workflow added; first remote run pending |
 | 13 | Final documentation | Planned |
 
-Screenshots and a demo recording will be added when a working interface exists.
-There are no retrieval benchmarks or generation evaluation results yet.
+Screenshots show the actual local demo. A demo recording and broader generation evaluation
+remain pending; see [the small synthetic evaluation](docs/evaluation.md).
 
 ## Contributing and license
 

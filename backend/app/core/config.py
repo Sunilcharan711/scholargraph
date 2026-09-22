@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     embedding_batch_size: int = Field(default=32, ge=1, le=256)
     embedding_cache_dir: Path = PROJECT_ROOT / "data" / "models"
     embedding_local_files_only: bool = False
+    search_candidate_limit: int = Field(default=50, ge=1, le=200)
+    rrf_k: int = Field(default=60, ge=1, le=1000)
+    ollama_url: str = "http://127.0.0.1:11434"
     chat_model: str = ""
     reranker_model: str = ""
     upload_dir: Path = PROJECT_ROOT / "data" / "uploads"

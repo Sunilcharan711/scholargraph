@@ -1,0 +1,25 @@
+import {test, expect} from "@playwright/test";
+test("empty library, error handling, search and citations", async ({page}) => {
+ await page.route("**/api/status", route => route.fulfill({json:{storage:"sqlite-demo",answer_model:"test-model"}}));
+ await page.route("**/api/papers?*", route => route.fulfill({json:{items:[],total:0}}));
+ await page.goto("/");
+ await expect(page.getByText("Make room for your next discovery.")).toBeVisible();
+ await page.route("**/api/search", route => route.fulfill({json:{results:[{paper_id:"abc",chunk_id:"def",title:"Example study",page:2,section:"Methods",snippet:"A small controlled experiment.",score:0.03,score_type:"rrf"}],latency_ms:20}}));
+ await page.getByLabel("Search query").fill("controlled experiment");
+ await page.getByRole("button", {name:"Search ↗",exact:true}).click();
+ await page.getByRole("button", {name:/PASSAGE 01/}).click();
+ await expect(page.getByRole("dialog")).toBeVisible();
+ await expect(page.getByRole("link", {name:"Open original PDF"})).toHaveAttribute("href", "/api/papers/abc/pdf#page=2");
+ await page.keyboard.press("Escape");
+ await expect(page.getByRole("dialog")).toHaveCount(0);
+ await page.getByRole("tab", {name:/Ask your library/}).click();
+ await page.route("**/api/chat/query", route => route.fulfill({json:{answer:"A small experiment [1]",insufficient_evidence:false,citations:[{source:1,paper_id:"abc",paper_title:"Example study",chunk_id:"def",page:2,section:"Methods",snippet:"A small controlled experiment.",relevance_score:0.03}],latency_ms:50,model:"test-model"}}));
+ await page.getByRole("button", {name:"Ask question ↗"}).click();
+ await page.getByRole("button", {name:/\[1\] Example study/}).click();
+ await expect(page.getByRole("dialog")).toBeVisible();
+ await page.getByRole("button", {name:"Close evidence"}).click();
+ await page.route("**/api/chat/query", route => route.fulfill({status:503,json:{detail:"Model unavailable"}}));
+ await page.getByRole("button", {name:"Ask question ↗"}).click();
+ await expect(page.getByRole("alert").filter({hasText:"Model unavailable"})).toBeVisible();
+ expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+});

@@ -1,14 +1,16 @@
 from fastapi import APIRouter
 
-from app.db.session import DatabaseSession
-from app.retrieval.dense import dense_search
+from app.db.session import AppSettings, DatabaseSession
 from app.retrieval.dependencies import Embedder
 from app.schemas.search import SearchRequest, SearchResponse
+from app.services.search import search_papers
 
 router = APIRouter(tags=["search"])
 
 
 @router.post("/search", response_model=SearchResponse)
-def search(request: SearchRequest, session: DatabaseSession, embedder: Embedder) -> SearchResponse:
-    """Search compatible vectors in ready papers using exact cosine similarity."""
-    return dense_search(session, embedder, request)
+def search(
+    request: SearchRequest, session: DatabaseSession, embedder: Embedder, config: AppSettings
+) -> SearchResponse:
+    """Search ready papers with dense, lexical BM25, or hybrid retrieval."""
+    return search_papers(session, embedder, request, config)

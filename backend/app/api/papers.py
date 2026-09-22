@@ -4,9 +4,11 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Response, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 
 from app.db.session import AppSettings, DatabaseSession
+from app.ingestion.storage import stored_path
 from app.models import Paper, PaperChunk
 from app.retrieval.dependencies import Embedder
 from app.schemas.papers import ChunkResponse, PaperDetail, PaperList, PaperResponse
@@ -78,3 +80,20 @@ def remove_paper(paper_id: UUID, session: DatabaseSession, config: AppSettings) 
     if not delete_paper(paper_id, session, config):
         raise HTTPException(404, "Paper not found.")
     return Response(status_code=204)
+
+
+@router.get("/{paper_id}/pdf")
+def read_pdf(paper_id: UUID, session: DatabaseSession, config: AppSettings) -> FileResponse:
+    paper = session.get(Paper, paper_id)
+    if paper is None or paper.processing_status != "ready":
+        raise HTTPException(404, "Paper not found.")
+    path = stored_path(config.upload_dir, paper.file_path)
+    if not path.is_file():
+        raise HTTPException(404, "PDF file is unavailable.")
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=paper.filename,
+        content_disposition_type="inline",
+        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store"},
+    )

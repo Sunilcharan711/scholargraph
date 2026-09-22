@@ -1,4 +1,4 @@
-# Architecture — ingestion and dense retrieval
+# Architecture — ingestion and hybrid retrieval
 
 ```mermaid
 flowchart TD
@@ -17,6 +17,12 @@ flowchart TD
     Adapter --> Search
     Postgres --> Search
     Search --> Evidence[Ranked chunks with source metadata and timings]
+    Query --> Lexical[BM25 keyword retrieval]
+    Postgres --> Lexical
+    Lexical --> Evidence
+    Search --> Fusion[Optional hybrid RRF]
+    Lexical --> Fusion
+    Fusion --> Evidence
     Parse -->|failure| Cleanup[Compensating file cleanup]
     Adapter -->|upload failure| Cleanup
     Transaction -->|failure| Cleanup
@@ -25,7 +31,7 @@ flowchart TD
 `app.api` validates the HTTP contract. `app.services` coordinates file/database work.
 `app.ingestion` contains independently testable parsing, chunking, and storage logic.
 `app.retrieval` contains the embedding contract, sentence-transformer implementation,
-and exact pgvector retrieval. `app.models` defines persistence; `app.schemas` prevents
+exact pgvector retrieval, BM25, and RRF fusion. `app.models` defines persistence; `app.schemas` prevents
 internal paths/raw vectors from leaking into responses. `app.db` supplies sessions.
 The app factory accepts injected sessions and an embedding provider for tests;
 production requires PostgreSQL and uses actual local sentence-transformer inference.
@@ -47,6 +53,9 @@ while preserving text and IDs. Deletion persists intent, unlinks the file, and d
 There is no distributed filesystem/database transaction; crash recovery and process-isolated
 PDF parsing remain future work. The upload root must be application-controlled.
 
-The planned downstream pipeline adds BM25 → hybrid RRF → optional reranker →
+BM25 and dense retrieval now implement a shared Retriever contract. The search service
+selects either method or fuses both candidate lists with RRF. See retrieval.md for details.
+
+The planned downstream pipeline adds optional reranker →
 provider-abstracted generation → deterministic citation mapping, alongside retrieval,
 generation, and latency evaluation. Those features are not implemented yet.

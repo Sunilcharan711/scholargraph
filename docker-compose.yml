@@ -1,4 +1,4 @@
-# Local single-user stack; frontend arrives in Milestone 8.
+# Local single-user demo stack.
 services:
   db:
     image: pgvector/pgvector:pg17
@@ -20,6 +20,9 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      CHAT_MODEL: ${CHAT_MODEL:-qwen2.5:1.5b}
+      OLLAMA_URL: http://host.docker.internal:11434
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DATABASE_URL: postgresql+psycopg://scholargraph:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/scholargraph
       UPLOAD_DIR: /data/uploads
@@ -30,6 +33,8 @@ services:
       CHUNK_OVERLAP_TOKENS: ${CHUNK_OVERLAP_TOKENS:-60}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
       EMBEDDING_REVISION: ${EMBEDDING_REVISION:-main}
+      SEARCH_CANDIDATE_LIMIT: ${SEARCH_CANDIDATE_LIMIT:-50}
+      RRF_K: ${RRF_K:-60}
       EMBEDDING_DEVICE: cpu
       EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-32}
       EMBEDDING_CACHE_DIR: /data/models
@@ -40,6 +45,15 @@ services:
     volumes:
       - uploads:/data/uploads
       - model_cache:/data/models
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    init: true
+  frontend:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
     init: true
 volumes:
   postgres_data:

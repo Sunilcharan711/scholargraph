@@ -1,0 +1,51 @@
+name: Verify ScholarGraph
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: scholargraph
+          POSTGRES_PASSWORD: ci_only_password
+          POSTGRES_DB: scholargraph_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U scholargraph -d scholargraph_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://scholargraph:ci_only_password@localhost:5432/scholargraph_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.3"
+      - run: uv sync --project backend --python 3.12 --locked
+      - run: uv run --project backend ruff check backend scripts
+      - run: uv run --project backend ruff format --check backend scripts
+      - run: uv run --project backend pytest -c backend/pyproject.toml
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build && npm run typecheck
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run test:e2e
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failures
+          path: frontend/test-results
