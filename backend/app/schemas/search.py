@@ -13,6 +13,7 @@ class SearchRequest(BaseModel):
     mode: Literal["dense", "bm25", "hybrid"] = "dense"
 
     diagnostics: bool = False
+    rerank: bool = False
 
     @field_validator("paper_ids")
     @classmethod
@@ -26,6 +27,9 @@ class RetrievalDiagnostics(BaseModel):
     bm25_rank: int | None = None
     bm25_score: float | None = None
     fused_score: float | None = None
+    retrieval_rank: int | None = None
+    retrieval_score: float | None = None
+    reranker_score: float | None = None
 
 
 class SearchResult(BaseModel):
@@ -37,7 +41,7 @@ class SearchResult(BaseModel):
     snippet: str
     similarity_score: float | None = Field(default=None, ge=-1, le=1)
     score: float
-    score_type: Literal["cosine", "bm25", "rrf"]
+    score_type: Literal["cosine", "bm25", "rrf", "cross_encoder"]
     diagnostics: RetrievalDiagnostics | None = None
 
 
@@ -57,3 +61,6 @@ class SearchResponse(BaseModel):
     fusion_ms: float = 0
     candidate_limit: int
     rrf_k: int | None = None
+    rerank_ms: float = 0
+    reranked_count: int = 0
+    reranker_model: str | None = None

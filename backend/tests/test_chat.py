@@ -125,6 +125,7 @@ def test_ollama_transport_and_invalid_output(config, monkeypatch):
         .insufficient_evidence
     )
     assert seen[0]["stream"] is False and seen[0]["format"]["type"] == "object"
+    assert seen[0]["format"]["$defs"]["Claim"]["properties"]["sources"]["items"]["enum"] == [1]
     assert "untrusted" in seen[0]["messages"][0]["content"]
 
 
@@ -167,3 +168,151 @@ for cycle in range(2):
         [sys.executable, "-c", script, str(tmp_path)], env=env, capture_output=True, text=True
     )
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        '{"insufficient_evidence":"false","claims":[]}',
+        '{"insufficient_evidence":false,"claims":[{"text":"   ","sources":[1]}]}',
+        '{"insufficient_evidence":false,"claims":[{"text":"claim","sources":[true]}]}',
+        '{"insufficient_evidence":false,"claims":[{"text":"claim","sources":["1"]}]}',
+        "not JSON",
+    ],
+)
+def test_provider_rejects_malformed_claims(config, monkeypatch, content):
+    from fastapi import HTTPException
+
+    config.llm_provider = "ollama"
+    config.chat_model = "test"
+    real_client = httpx.Client
+    monkeypatch.setattr(
+        "app.services.chat.httpx.Client",
+        lambda **kw: real_client(
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(200, json={"message": {"content": content}})
+            )
+        ),
+    )
+    with pytest.raises(HTTPException) as exc:
+        OllamaProvider(config).generate("question", [{"source": 1, "text": "evidence"}])
+    assert exc.value.status_code == 503
+
+
+@pytest.mark.parametrize("failure", ["timeout", "http", "truncated", "array"])
+def test_provider_failures_are_explicit(config, monkeypatch, failure):
+    from fastapi import HTTPException
+
+    config.llm_provider = "ollama"
+    config.chat_model = "test"
+    real_client = httpx.Client
+
+    def handle(request):
+        if failure == "timeout":
+            raise httpx.ReadTimeout("private upstream detail", request=request)
+        if failure == "array":
+            return httpx.Response(200, json=[])
+        if failure == "http":
+            return httpx.Response(500, text="private upstream detail")
+        return httpx.Response(
+            200,
+            json={
+                "done_reason": "length",
+                "message": {"content": '{"insufficient_evidence":true,"claims":[]}'},
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.chat.httpx.Client",
+        lambda **kw: real_client(transport=httpx.MockTransport(handle)),
+    )
+    with pytest.raises(HTTPException) as exc:
+        OllamaProvider(config).generate("question", [{"source": 1, "text": "evidence"}])
+    assert exc.value.status_code == 503
+    assert "private" not in exc.value.detail
+
+
+def test_grouped_citation_markers_are_rejected(client, pdf_bytes):
+    client.post("/api/papers/upload", files={"file": ("paper.pdf", pdf_bytes)})
+    provider = Mock()
+    provider.generate.return_value = GeneratedAnswer(
+        insufficient_evidence=False, claims=[Claim(text="Invented marker [1, 99]", sources=[1])]
+    )
+    client.app.state.answer_provider = provider
+    response = client.post("/api/chat/query", json={"question": "retrieval", "mode": "bm25"})
+    assert response.status_code == 502
+
+
+def test_evidence_filters_titles_and_duplicates(client, pdf_bytes, session_factory):
+    from uuid import UUID
+
+    from sqlalchemy import select
+
+    from app.models import PaperChunk
+
+    paper = client.post("/api/papers/upload", files={"file": ("paper.pdf", pdf_bytes)}).json()
+    with session_factory() as session:
+        chunks = session.scalars(
+            select(PaperChunk).where(PaperChunk.paper_id == UUID(paper["id"]))
+        ).all()
+        chunks[0].text = paper["title"]
+        for chunk in chunks[1:]:
+            chunk.text = "A unique substantive passage about retrieval."
+        session.commit()
+    provider = Mock()
+    provider.generate.return_value = GeneratedAnswer(insufficient_evidence=True, claims=[])
+    client.app.state.answer_provider = provider
+    response = client.post(
+        "/api/chat/query", json={"question": "retrieval", "mode": "dense", "top_k": 12}
+    )
+    assert response.status_code == 200
+    evidence = provider.generate.call_args.args[1]
+    assert len(evidence) == 1
+    assert evidence[0]["paper_title"] == paper["title"]
+    assert evidence[0]["page"] >= 1
+    body = response.json()
+    assert body["evidence_count"] == 1
+    assert 0 <= body["retrieval_ms"] <= body["latency_ms"]
+    assert 0 <= body["generation_ms"] <= body["latency_ms"]
+
+
+@pytest.mark.parametrize("second_page,legacy", [(False, False), (True, False), (True, True)])
+def test_inferred_title_remains_evidence(client, session_factory, second_page, legacy):
+    from uuid import UUID
+
+    import pymupdf
+
+    from app.models import Paper
+
+    sentence = "Our measured accuracy increased to 92%."
+    with pymupdf.open() as pdf:
+        pdf.new_page().insert_text((50, 60), sentence)
+        if second_page:
+            pdf.new_page().insert_text((50, 60), "Instrument maintenance logs are available.")
+        upload = client.post("/api/papers/upload", files={"file": ("short.pdf", pdf.tobytes())})
+    assert upload.status_code == 201 and upload.json()["title"] == sentence
+    assert upload.json()["metadata_json"]["title_source"] == "first_page"
+    if legacy:
+        with session_factory() as session:
+            paper = session.get(Paper, UUID(upload.json()["id"]))
+            paper.metadata_json = {
+                k: v for k, v in paper.metadata_json.items() if k != "title_source"
+            }
+            session.commit()
+    provider = Mock()
+    provider.generate.return_value = GeneratedAnswer(
+        insufficient_evidence=False, claims=[Claim(text=sentence, sources=[1])]
+    )
+    client.app.state.answer_provider = provider
+    response = client.post(
+        "/api/chat/query",
+        json={
+            "question": "accuracy",
+            "paper_ids": [upload.json()["id"]],
+            "mode": "bm25",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["evidence_count"] == 1
+    assert response.json()["citations"][0]["snippet"] == sentence
+    assert response.json()["citations"][0]["page"] == 1

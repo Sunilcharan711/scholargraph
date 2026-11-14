@@ -1,6 +1,9 @@
 # Milestone 3 verification
 
-Implemented on 2026-09-22. Optional reranking and citation-grounded generation have not started.
+Implemented on 2026-09-22. The sections below record that milestone at the time.
+See [October 13 re-verification](verification-2026-10-13.md) for current environment,
+passing PostgreSQL CI evidence, and remaining local Docker limitations.
+The subsequent committed demo already includes Q&A; optional reranking remains deferred.
 
 ## Delivered
 

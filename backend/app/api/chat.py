@@ -16,4 +16,11 @@ def query(
     config: AppSettings,
     embedder: Embedder,
 ) -> ChatResponse:
-    return answer_question(session, embedder, request.app.state.answer_provider, body, config)
+    return answer_question(
+        session,
+        embedder,
+        request.app.state.answer_provider,
+        body,
+        config,
+        request.app.state.reranker,
+    )

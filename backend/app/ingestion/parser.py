@@ -27,7 +27,9 @@ class SectionText:
 @dataclass(frozen=True)
 class ParsedPaper:
     title: str
+    title_source: str
     authors: list[str]
+    keywords: list[str]
     abstract: str | None
     page_count: int
     sections: list[SectionText]
@@ -57,6 +59,7 @@ def parse_pdf(path: Path, fallback_title: str, max_pages: int, max_chars: int) -
                 raise IngestionError(f"PDF must contain between 1 and {max_pages} pages.", 413)
             metadata = document.metadata or {}
             title = str(metadata.get("title") or "").strip()
+            title_source = "metadata" if title else "filename"
             authors = [a.strip() for a in re.split(r";", metadata.get("author") or "") if a.strip()]
             sections: list[SectionText] = []
             heading: str | None = None
@@ -101,6 +104,7 @@ def parse_pdf(path: Path, fallback_title: str, max_pages: int, max_chars: int) -
                 if number == 1 and not title and title_candidates:
                     # Largest first-page line; ties prefer the earliest line.
                     title = max(title_candidates, key=lambda candidate: candidate[0])[1]
+                    title_source = "first_page"
                 if paragraphs:
                     sections.append(SectionText(number, heading, "\n\n".join(paragraphs)))
                 if not page_has_text:
@@ -123,7 +127,15 @@ def parse_pdf(path: Path, fallback_title: str, max_pages: int, max_chars: int) -
                 warnings.append(f"{blank_pages} page(s) have no extractable text; no OCR was run.")
             return ParsedPaper(
                 title=title or fallback_title,
+                title_source=title_source,
                 authors=authors,
+                keywords=list(
+                    dict.fromkeys(
+                        k.strip()
+                        for k in re.split(r"[,;]", metadata.get("keywords") or "")
+                        if k.strip()
+                    )
+                ),
                 abstract=abstract,
                 page_count=len(document),
                 sections=sections,

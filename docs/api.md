@@ -113,3 +113,75 @@ source IDs return 502; missing/unavailable model configuration returns 503.
 `GET /api/papers/{paper_id}/pdf` serves the stored PDF inline with safe path checks.
 `GET /api/status` reports the storage mode and configured answer provider/model;
 it does not assert that the model is loaded or available.
+
+### Q&A reliability update (October 14, 2026)
+
+Chat responses additionally expose `retrieval_ms` (search plus evidence preparation),
+`generation_ms` (provider call including any cold load), and `evidence_count`.
+The service retrieves at most `min(50, 3 * top_k)` candidates and retains at most
+`top_k` substantive, unique excerpts under the existing 16,000-character total and
+4,000-character per-passage limits. New uploads record the origin of the title in
+`metadata_json.title_source` (`metadata`, `first_page`, or `filename`). In multi-chunk
+papers, excerpts matching a known PDF metadata title are omitted. Text used as an
+inferred title remains eligible as evidence, including in older records of unknown origin.
+
+Source IDs are restricted to supplied evidence in the provider's JSON schema and
+validated again before response assembly. Non-integer source IDs, blank claims,
+invalid JSON, truncated output and provider failures produce explicit errors.
+Grouped numeric citation markers invented inside claim text are rejected as well.
+No response is silently replaced with a fabricated or extractive answer.
+
+These checks establish source identity and response shape, not semantic entailment.
+Small local models can still abstain incorrectly or cite a passage that does not
+support the answer. Use `scripts/evaluate_qa.py` for opt-in local-model verification;
+it creates a temporary synthetic corpus and does not alter the user's library.
+
+## POST /compare
+
+`POST /api/compare` accepts 2–4 distinct ready paper UUIDs and a topic:
+
+```json
+{"paper_ids":["b0becd61-5769-41b9-927d-1cc55069d6b3","809c0534-039a-48d1-b553-5c154e675d5c"],"dimension":"methodology","mode":"hybrid"}
+```
+
+Replace both example IDs with IDs from the library. Topics: objective, methodology,
+dataset, architecture, evaluation, findings, limitations, future_work. Each request
+returns one row with cells in the supplied paper order. Each cell contains the
+paper ID, title and a grounded chat response with page citations, or a provider
+error. An insufficient-evidence answer means the retrieved passages did not answer
+the question; it does not establish that the paper never discussed the topic.
+
+Methodology and findings cells display sentences from retrieved passages. In the
+answer text, `〔14〕` denotes numeric brackets copied from the paper; `[1]`
+denotes ScholarGraph's link to an evidence passage. The snippet keeps its
+original punctuation. Methods
+prefer labeled methods sections. Findings use conservative English outcome cues
+and can miss results, particularly in tables or with unfamiliar phrasing. They
+exclude explicit plans and prior-work statements and retain qualifications
+attached to measured outcomes. A paper's
+explicit statement that it reports no measurements can be quoted with its citation;
+silence alone produces an insufficient-evidence cell. To repeat the
+local-model regression check, run `scripts/check_comparison_quality.py` in the
+backend environment with Ollama configured and the embedding model cached.
+## Scholar Graph
+
+`GET /api/graph` returns ready papers and undirected semantic similarity edges.
+`GET /api/graph/{paper_id}` returns the selected paper and its direct neighbors
+(404 for a missing or deleting paper). Both accept `min_similarity` from 0 to 1.
+Nodes include title, authors, nullable publication year, available PDF keywords,
+and whether the paper has a usable pooled embedding. Missing metadata stays empty.
+
+Chunk vectors are weighted by token count, summed and normalized. Only papers
+with complete vectors in the same model revision and dimensions can link. Edges
+are selected by descending cosine similarity with deterministic ID tie breaks
+and a degree cap at both endpoints in the overview. The focused endpoint ranks
+the selected paper's own neighbors independently and returns up to the same cap.
+Scores within 1e-12 of 1 are treated as 1 before filtering. Links indicate related content, not citations.
+Defaults: minimum similarity 0.45, 5 neighbors, latest 200 ready papers. Configure
+`GRAPH_MIN_SIMILARITY`, `GRAPH_MAX_NEIGHBORS`, and `GRAPH_MAX_PAPERS` to change these.
+If the window is truncated, the response says so; a focused request always includes
+its paper. GET reads current embeddings without invoking a model or writing to storage.
+
+`POST /api/graph/rebuild` replaces the saved semantic edges for the default window
+in one transaction. GET does not depend on rebuilding a snapshot. PostgreSQL
+installations must apply Alembic migration `0003_research` before saving snapshots.

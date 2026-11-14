@@ -1,4 +1,78 @@
-# Demo verification — September 22, 2026
+# ScholarGraph evaluation
+
+## Milestone 9
+
+The [question set](../evaluation/questions.json) covers three original synthetic PDFs,
+six answerable questions and one unanswerable question. One question needs passages
+from two papers. Each case lists its question, relevant paper and passage IDs, and
+expected answer points. Paper IDs match generated filenames, and passage IDs combine
+the filename stem and section heading. Each run resolves these labels against a fresh
+SQLite library populated through the upload API. These authored cases measure behavior
+on this fixture only.
+
+Run the following from the repository root with backend dependencies installed. For
+the fourth retrieval method, set `RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2`
+and make its weights available. Answer and latency runs use the configured Ollama
+server and `CHAT_MODEL`. The scripts write JSON under `reports/`. A failed method
+or request is recorded and causes a nonzero exit.
+
+```sh
+uv run --project backend python scripts/run_retrieval_eval.py --top-k 5
+uv run --project backend python scripts/run_rag_eval.py
+uv run --project backend python scripts/run_rag_eval.py --score reports/rag-reviewed.json
+uv run --project backend python scripts/benchmark_latency.py --repeats 3
+uv run --project backend python scripts/benchmark_latency.py --repeats 3 --rerank
+```
+
+Retrieval scores are macro averages across the six answerable questions. Precision
+uses K as the denominator even when fewer results return. Recall uses the number
+of relevant items, MRR uses the first relevant rank within K, and nDCG uses binary
+relevance with logarithmic discount. Paper scores collapse duplicate papers in the
+returned K passages in first-appearance order.
+
+| Passage retrieval at K=5 | Precision | Recall | MRR | nDCG |
+| --- | ---: | ---: | ---: | ---: |
+| BM25 | 0.233 | 1.000 | 0.917 | 0.949 |
+| Dense | 0.200 | 0.917 | 0.917 | 0.898 |
+| Hybrid | 0.233 | 1.000 | 1.000 | 0.987 |
+
+The November 12 run used the cached MiniLM embedding model. Hybrid with reranking
+returned HTTP 503 because its weights were unavailable locally and the registry
+connection failed.
+
+### Reviewing generated answers
+
+Copy `reports/rag-eval.json` to `reports/rag-reviewed.json`. Read the returned
+answer, its claims, the numbered passages the model saw, and the expected points.
+Replace each null in the review arrays with a boolean before running `--score`.
+
+- Mark answer relevance true when the answer addresses the question, or correctly
+  abstains on an unanswerable question.
+- Mark each expected point true only if the answer conveys the complete point.
+- Mark each returned claim grounded when the supplied passages support all its
+  assertions. Unsupported claim rate is the fraction failing this test.
+- In claim and source order, mark each citation true when that passage directly
+  supports the attached claim. An abstention contributes no claims or citations.
+- The scorer computes context relevance from the fraction of passages actually
+  supplied to the generator that have a relevant passage label.
+
+In a review by Codex of one local Qwen2.5 1.5B run, 3/7 answers addressed the
+question or correctly abstained. The answers covered 2/9 full expected points,
+and 7/35 supplied passages were labeled relevant. All three returned claim blocks
+were supported somewhere in context, but only 3/11 attached citations supported
+their claim. The model also abstained on three answerable questions. These judgments
+are available with the answers and evidence in `reports/rag-scored.json`.
+
+### Timing
+
+The benchmark records milliseconds for query embedding, retrieval (including fusion),
+reranking, model generation, and total in-process HTTP request time. It reports
+median and nearest-rank p95 across successful requests and includes every raw sample.
+The total includes evidence assembly, validation and request handling. Corpus
+indexing happens before timing. The first query is included, so model startup may
+affect it. A disabled reranker contributes zero elapsed time.
+
+## Demo verification — September 22, 2026
 
 ## Retrieval smoke evaluation
 
@@ -43,3 +117,16 @@ citation markers are rejected. Metadata and excerpts are assembled from stored c
 not invented by the model. This validates provenance, not semantic entailment.
 A model can still cite an irrelevant passage, omit a limitation, or fail to abstain.
 Evidence is treated as untrusted text in the prompt, but prompt injection is not solved.
+
+## October 13 verification update
+
+The existing PostgreSQL CI job has now been inspected and confirmed passing.
+See [verification details](verification-2026-10-13.md) for the exact test scope,
+new local baseline results, and remaining Docker/real-model PostgreSQL gaps.
+
+## October 14 Q&A update
+
+A real-model six-case comparison and stricter response validation are documented in
+[Milestone 5](milestone-5.md). Expected answer/abstention decisions improved from 3/6
+to 5/6; this is not a held-out accuracy benchmark. One false abstention and redundant
+citations remain.

@@ -1,0 +1,9 @@
+[
+  {"question":"Which constant is used for reciprocal rank fusion?","relevant_paper_ids":["demo-1"],"relevant_chunk_ids":["demo-1/Methods"],"expected_points":["The fusion constant is 60."]},
+  {"question":"Why is the retrieval experiment insufficient to establish performance on scientific literature?","relevant_paper_ids":["demo-1"],"relevant_chunk_ids":["demo-1/Limitations"],"expected_points":["Only three synthetic documents were evaluated."]},
+  {"question":"How are source identifiers turned into traceable citations?","relevant_paper_ids":["demo-2"],"relevant_chunk_ids":["demo-2/Methods"],"expected_points":["The application maps integer source IDs to stored passage metadata.","Unknown IDs are rejected."]},
+  {"question":"Does a valid citation identifier guarantee support for a claim?","relevant_paper_ids":["demo-2"],"relevant_chunk_ids":["demo-2/Limitations"],"expected_points":["No. The reader must inspect the passage for support."]},
+  {"question":"How does the greenhouse study deliver water and limit evaporation?","relevant_paper_ids":["demo-3"],"relevant_chunk_ids":["demo-3/Methods"],"expected_points":["Drip irrigation delivers water to roots.","Mulch reduces evaporation."]},
+  {"question":"What limits the conclusions of both the retrieval and greenhouse experiments?","relevant_paper_ids":["demo-1","demo-3"],"relevant_chunk_ids":["demo-1/Limitations","demo-3/Limitations"],"expected_points":["The retrieval corpus is small and synthetic.","The greenhouse study reports no measured yield improvement or validated water savings."]},
+  {"question":"What was the orbital period of the satellite in the trial?","relevant_paper_ids":[],"relevant_chunk_ids":[],"expected_points":[]}
+]

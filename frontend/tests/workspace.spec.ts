@@ -1,8 +1,24 @@
 import {test, expect} from "@playwright/test";
+
+test("deleting the only paper on the last page returns to the remaining papers", async ({page}) => {
+ const papers = Array.from({length:21}, (_, i) => ({id:String(i),title:"Paper "+i,authors:[],filename:"a.pdf",processing_status:"ready"}));
+ await page.route("**/api/status", r=>r.fulfill({json:{storage:"postgresql"}}));
+ await page.route("**/api/papers?*", r=>{
+   const offset=Number(new URL(r.request().url()).searchParams.get("offset"));
+   return r.fulfill({json:{items:papers.slice(offset,offset+20),total:papers.length}});
+ });
+ await page.route("**/api/papers/20", r=>{expect(r.request().method()).toBe("DELETE"); papers.pop(); return r.fulfill({status:204});});
+ await page.goto("/search");
+ await page.getByRole("button",{name:"Next",exact:true}).click();
+ page.once("dialog",d=>d.accept());
+ await page.getByRole("button",{name:"Delete Paper 20",exact:true}).click();
+ await expect(page.getByLabel("Paper library",{exact:true}).getByRole("checkbox")).toHaveCount(20);
+ await expect(page.getByRole("button",{name:"Delete Paper 0",exact:true})).toBeVisible();
+});
 test("empty library, error handling, search and citations", async ({page}) => {
  await page.route("**/api/status", route => route.fulfill({json:{storage:"sqlite-demo",answer_model:"test-model"}}));
  await page.route("**/api/papers?*", route => route.fulfill({json:{items:[],total:0}}));
- await page.goto("/");
+ await page.goto("/search");
  await expect(page.getByText("Make room for your next discovery.")).toBeVisible();
  await page.route("**/api/search", route => route.fulfill({json:{results:[{paper_id:"abc",chunk_id:"def",title:"Example study",page:2,section:"Methods",snippet:"A small controlled experiment.",score:0.03,score_type:"rrf"}],latency_ms:20}}));
  await page.getByLabel("Search query").fill("controlled experiment");

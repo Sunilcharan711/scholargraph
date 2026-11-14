@@ -1,5 +1,5 @@
-export type Paper = { id: string; title: string; authors: string[]; filename: string; processing_status: string; abstract: string | null };
-export type Source = { paper_id: string; title: string; chunk_id: string; page: number; section: string | null; snippet: string; score: number; score_type: string };
+export type Paper = { id: string; title: string; authors: string[]; filename: string; processing_status: string; publication_year: number | null; abstract: string | null };
+export type Source = { paper_id: string; title: string; chunk_id: string; page: number; section: string | null; snippet: string; score: number; diagnostics?: Record<string,number|null>; score_type: string };
 export type Citation = { source: number; paper_id: string; paper_title: string; chunk_id: string; page: number; section: string | null; snippet: string; relevance_score: number };
 export type Answer = { answer: string; citations: Citation[]; insufficient_evidence: boolean; latency_ms: number; model: string | null };
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {

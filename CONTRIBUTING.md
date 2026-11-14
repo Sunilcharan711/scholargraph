@@ -15,7 +15,9 @@ the opt-in PostgreSQL migration/vector/API test. See README.md for setup and sco
 
 Use Alembic migrations for schema changes; do not call create_all during app startup.
 Keep storage paths internal, preserve page provenance, and test rejection cleanup when
-changing ingestion. Frontend checks will be added when the frontend is implemented.
+changing ingestion. In `frontend`, run `npm run lint`, `npm run build`,
+`npm run typecheck`, and `npm run test:e2e`. Install Chromium once using
+`npx playwright install chromium`. CI runs these checks on pushes and pull requests.
 
 Embedding unit tests use clearly labeled deterministic vectors. Run the real-model
 smoke script and opt-in `RUN_MODEL_TESTS=1` checks when changing the embedding adapter.

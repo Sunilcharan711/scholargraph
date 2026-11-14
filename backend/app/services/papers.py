@@ -41,6 +41,8 @@ def ingest_paper(
             file_path=basename,
             processing_status="ready",
             metadata_json={
+                "title_source": parsed.title_source,
+                "keywords": parsed.keywords,
                 "page_count": parsed.page_count,
                 "byte_count": byte_count,
                 "chunk_count": len(chunks),

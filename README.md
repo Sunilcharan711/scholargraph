@@ -4,16 +4,22 @@ An AI research intelligence system for searching, comparing, and reasoning acros
 
 ## Development status
 
-**Local demo implemented:** PDF library, dense/BM25/hybrid search, a responsive
-Next.js interface, and Ollama answers with validated source IDs and page citations.
+From the landing page, open **Library** to upload PDFs or read a paper record.
+Use **Evaluation** for the recorded synthetic retrieval and Q&A baselines.
+The research workspace supports PDF upload, dense/BM25/hybrid search, grounded
+Q&A, and side-by-side paper comparison. To compare, select **2–4 papers** in the
+library, open **Compare papers**, and choose a topic. Run another topic to add
+a row for the same papers. Select a citation to inspect its passage and PDF page.
 Run the demo using [the setup and walkthrough](docs/demo.md).
 
 ![Real local search interface](docs/images/search-desktop.png)
 
 The demo uses an explicitly labeled SQLite adapter with real MiniLM embeddings.
-PostgreSQL/pgvector and Docker remain unverified locally. The small Ollama model
-produced a live answer, but its wording and citation selection need further quality
-work. This is a working development demo, not a finished research product.
+PostgreSQL/pgvector integration passed in GitHub Actions using deterministic test embeddings.
+Local PostgreSQL and the full Docker Compose stack remain unverified.
+See [current verification evidence](docs/verification-2026-10-13.md). The local Q&A reliability pass improves evidence selection and output validation;
+[the six-case check](docs/milestone-5.md) still shows one false abstention and redundant
+citations. This is a working development demo, not a finished research product.
 
 See [verification and evaluation](docs/evaluation.md) for measured results and limits.
 
@@ -35,7 +41,8 @@ Available:
 Available demo additions: local Ollama answers, deterministic citation mapping, PDF page viewing,
 a responsive Next.js library/search/Q&A interface, sample documents, and a small retrieval evaluation.
 
-Planned: optional reranking, multi-paper comparison, related papers, and an interactive graph.
+Open **Explore Scholar Graph** in the workspace to discover related papers, inspect
+their similarity scores, and follow a link to another paper's neighborhood.
 
 ## Architecture
 
@@ -54,7 +61,7 @@ flowchart LR
 
 Current stack: Python 3.11+, FastAPI, Pydantic Settings, SQLAlchemy 2, Alembic,
 psycopg, PostgreSQL/pgvector, PyMuPDF, sentence-transformers, PyTorch, pytest, httpx, and Ruff.
-Frontend: Next.js, React, TypeScript, and responsive CSS. BM25 and RRF run locally; optional cross-encoder reranking remains planned. Docker configuration and GitHub Actions checks are included; execution status is documented below.
+Frontend: Next.js, React, TypeScript, and responsive CSS. BM25 and RRF run locally; optional cross-encoder reranking is available via the API when configured. Docker configuration and GitHub Actions checks are included; execution status is documented below.
 
 ## Repository structure
 
@@ -218,7 +225,7 @@ not the shell working directory. Existing Milestone 0 users should change
 | RRF_K | 60; positive rank-fusion constant |
 | EMBEDDING_CACHE_DIR | data/models, relative to repository root |
 | EMBEDDING_LOCAL_FILES_ONLY | false; set true after the model cache is populated |
-| RERANKER_MODEL | Empty; reserved for a future milestone |
+| RERANKER_MODEL | Optional cross-encoder model ID; disabled by default |
 
 No real credentials, uploaded PDFs, generated data, or local databases belong in Git.
 
@@ -315,18 +322,18 @@ applied. Arbitrary model compatibility is not guaranteed. See [retrieval notes](
 | Milestone | Scope | Status |
 | --- | --- | --- |
 | 0 | Foundation, settings, health API | Verified |
-| 1 | Database schema and PDF ingestion | Implemented; live PostgreSQL verification pending |
-| 2 | Embeddings and dense retrieval | Implemented; real model verified, live pgvector pending |
-| 3 | BM25 and hybrid retrieval | Implemented; local and real-model tests passed, live PostgreSQL pending |
-| 4 | Optional cross-encoder reranking | Planned |
+| 1 | Database schema and PDF ingestion | PostgreSQL migration/ingestion integration passed in CI |
+| 2 | Embeddings and dense retrieval | Real model verified locally; pgvector passed separately in CI with test embeddings |
+| 3 | BM25 and hybrid retrieval | Local tests and PostgreSQL CI integration passed |
+| 4 | Optional cross-encoder reranking | API implemented; real model check pending |
 | 5 | Citation-grounded RAG | Local provider and citation validation implemented; answer quality needs further work |
-| 6 | Multi-paper comparison | Planned |
-| 7 | Related papers and graph | Planned |
-| 8 | Next.js frontend | Demo library, search, answers and evidence implemented |
-| 9 | Retrieval, generation, and latency evaluation | Small synthetic retrieval check; broader evaluation pending |
-| 10 | Broader testing and quality | Backend and desktop/mobile regression checks added |
+| 6 | Multi-paper comparison | API and workspace implemented |
+| 7 | Related papers and graph | Semantic graph API, saved snapshots, and neighborhood explorer implemented |
+| 8 | Research interface | Landing, library, paper records, scoped chat, search diagnostics, comparison, interactive graph and recorded evaluation dashboard |
+| 9 | Retrieval, generation, and latency evaluation | Labeled synthetic cases, retrieval metrics, reviewed answers and latency scripts implemented; real reranker measurement pending |
+| 10 | Broader testing and quality | Backend regression tests, frontend ESLint, TypeScript, production build and desktop/mobile checks enforced in CI |
 | 11 | Full Docker Compose stack | Configuration added; local execution pending |
-| 12 | GitHub Actions | Workflow added; first remote run pending |
+| 12 | GitHub Actions | Backend and frontend jobs passed for c195577 |
 | 13 | Final documentation | Planned |
 
 Screenshots show the actual local demo. A demo recording and broader generation evaluation

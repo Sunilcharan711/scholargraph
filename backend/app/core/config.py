@@ -36,7 +36,16 @@ class Settings(BaseSettings):
     rrf_k: int = Field(default=60, ge=1, le=1000)
     ollama_url: str = "http://127.0.0.1:11434"
     chat_model: str = ""
-    reranker_model: str = ""
+    reranker_model: str = Field(
+        default="", pattern=r"^(?:[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)?$", max_length=200
+    )
+    reranker_revision: str = Field(default="main", min_length=1, max_length=100)
+    reranker_local_files_only: bool = False
+    reranker_candidate_limit: int = Field(default=20, ge=1, le=50)
+    reranker_batch_size: int = Field(default=8, ge=1, le=32)
+    graph_min_similarity: float = Field(default=0.45, ge=0, le=1)
+    graph_max_neighbors: int = Field(default=5, ge=1, le=20)
+    graph_max_papers: int = Field(default=200, ge=2, le=500)
     upload_dir: Path = PROJECT_ROOT / "data" / "uploads"
     max_file_size_mb: int = Field(default=25, ge=1, le=200)
     max_pdf_pages: int = Field(default=500, ge=1, le=2000)
