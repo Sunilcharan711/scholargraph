@@ -1,0 +1,30 @@
+{$SITE_ADDRESS} {
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy same-origin
+        -Server
+    }
+    @crossSite {
+        method POST PUT PATCH DELETE
+        header Sec-Fetch-Site cross-site
+    }
+    @wrongOrigin {
+        method POST PUT PATCH DELETE
+        header Origin *
+        not header Origin {$SITE_ORIGIN}
+    }
+    route {
+        basic_auth {
+            {$AUTH_USER} {$AUTH_PASSWORD_HASH}
+        }
+        respond @crossSite "Cross-site writes are not allowed" 403
+        respond @wrongOrigin "Origin is not allowed" 403
+        request_body {
+            max_size 27262976
+        }
+        reverse_proxy frontend:3000 {
+            header_up -Authorization
+        }
+    }
+}

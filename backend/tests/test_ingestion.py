@@ -7,7 +7,7 @@ import pytest
 
 from app.core.errors import IngestionError
 from app.ingestion.chunker import chunk_sections
-from app.ingestion.parser import SectionText, parse_pdf
+from app.ingestion.parser import SectionText, line_text, parse_pdf
 from app.ingestion.storage import save_pdf, stored_path, validate_filename
 
 
@@ -28,6 +28,35 @@ def test_invalid_upload_metadata(name: str | None, mime: str) -> None:
 def test_filename_sanitization() -> None:
     assert validate_filename("../../a?.PDF", "application/pdf") == "a_.pdf"
     assert validate_filename("C:\\private\\study.pdf", None) == "study.pdf"
+
+
+def test_font_changes_do_not_insert_spaces_inside_words():
+    assert (
+        line_text(
+            [
+                {"text": "A", "size": 16, "bbox": (0, 0, 10, 16)},
+                {"text": "PPROXIMATE", "size": 13, "bbox": (10, 0, 100, 16)},
+                {"text": "search", "size": 13, "bbox": (105, 0, 145, 16)},
+            ]
+        )
+        == "APPROXIMATE search"
+    )
+
+
+def test_title_ignores_rotated_watermark_and_preserves_wrapped_lines(tmp_path):
+    path = tmp_path / "watermark.pdf"
+    with pymupdf.open() as document:
+        page = document.new_page()
+        page.insert_text((72, 80), "A Study of Retrieval\nAcross Multiple Documents", fontsize=16)
+        page.insert_text((20, 700), "arXiv:1234.56789v2", fontsize=24, rotate=90)
+        page.insert_text((72, 720), "Publisher footer", fontsize=28)
+        page.insert_text((72, 180), "Abstract", fontsize=12)
+        page.insert_text((72, 200), "We compare retrieval methods.", fontsize=10)
+        document.save(path)
+    parsed = parse_pdf(path, "fallback", 10, 10000)
+    assert parsed.title == "A Study of Retrieval Across Multiple Documents"
+    assert parsed.title_source == "first_page"
+    assert "arXiv:" in parsed.full_text  # Only title selection changes; evidence is retained.
 
 
 def test_storage_limits_and_collision_avoidance(tmp_path: Path, pdf_bytes: bytes) -> None:

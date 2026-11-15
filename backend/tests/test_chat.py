@@ -5,7 +5,26 @@ import httpx
 import pytest
 
 from app.schemas.chat import Citation, Claim, GeneratedAnswer
-from app.services.chat import OllamaProvider, missing_requested_metric, preserve_limitations
+from app.services.chat import (
+    OllamaProvider,
+    merge_duplicate_claims,
+    missing_requested_metric,
+    preserve_limitations,
+)
+
+
+def test_repeated_real_paper_claims_merge_without_losing_sources():
+    result = merge_duplicate_claims(
+        [
+            Claim(text="Self-attention mechanisms", sources=[1]),
+            Claim(text="Self-attention mechanisms", sources=[2, 1]),
+            Claim(text="Different qualification", sources=[3]),
+        ]
+    )
+    assert len(result) == 2
+    assert result[0].text == "Self-attention mechanisms"
+    assert result[0].sources == [1, 2]
+    assert result[1].text == "Different qualification"
 
 
 def test_unreported_metric_is_not_inferred_from_corpus_size():

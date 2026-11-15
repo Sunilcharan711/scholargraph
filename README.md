@@ -358,14 +358,18 @@ remain unmeasured. [Methods, reproduction commands and limitations](docs/evaluat
 ## Limitations and Failure Cases
 
 No OCR, perfect multi-column/table extraction, background ingestion jobs, user accounts,
-rate limiting, or public-deployment hardening exists yet. Password-protected and textless
+rate limiting, or public multi-user deployment hardening exists yet. A
+[private VPS deployment](docs/vps-deployment.md) provides HTTPS authentication,
+upload limits, readiness monitoring and backup/restore tooling for one owner.
+Password-protected and textless
 PDFs are rejected. Mixed scanned/text PDFs include a warning for pages without text.
 PDF parsing is native code; hostile inputs need process isolation/timeouts before public use.
 
 The upload middleware spools at most the file limit plus 64 KiB of multipart overhead;
 individual file limits are also checked. Parsing uses a bounded file-sized byte buffer
 to avoid Windows handle leaks on malformed PDFs. Limits apply per request, not across
-concurrent uploads. Reverse-proxy limits and concurrency controls remain future work.
+concurrent uploads. The VPS override adds a reverse-proxy request limit;
+concurrency controls remain future work.
 
 Filesystem and database operations cannot form one atomic transaction. Process crashes,
 unavailable storage during rollback, or an ambiguous database commit can require manual
@@ -403,12 +407,14 @@ applied. Arbitrary model compatibility is not guaranteed. See [retrieval notes](
 | 13 | Final documentation | Architecture, retrieval, API, evaluation, setup and limitations documented |
 
 Screenshots show the actual local demo. A demo recording and broader generation evaluation
-remain pending; see [the small synthetic evaluation](docs/evaluation.md).
+remain pending; see [the small synthetic evaluation](docs/evaluation.md) and
+[the ten-paper development evaluation](docs/real-paper-evaluation.md).
 
 Remaining work includes stronger answer and citation quality, real cross-encoder
 measurement, evaluation on a larger independently labeled corpus, and a demo recording.
-Multi-user authentication, deployment hardening and larger-corpus indexing remain
-future scope.
+Multi-user accounts, larger-corpus indexing, and verification on an actual VPS
+remain future scope. Private deployment preparation and a local restore drill
+are documented in the [VPS guide](docs/vps-deployment.md).
 
 ## Contributing and license
 

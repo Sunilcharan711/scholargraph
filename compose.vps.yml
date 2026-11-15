@@ -1,0 +1,50 @@
+# Use this override with docker-compose.yml. Requires Docker Compose 2.24.4+.
+services:
+  db:
+    ports: !reset []
+    restart: unless-stopped
+    logging: &logs
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  backend:
+    ports: !reset []
+    restart: unless-stopped
+    environment:
+      OLLAMA_URL: ${VPS_OLLAMA_URL:-http://ollama:11434}
+      MAX_FILE_SIZE_MB: "25"
+    logging: *logs
+  frontend:
+    ports: !reset []
+    restart: unless-stopped
+    logging: *logs
+  ollama:
+    image: ollama/ollama:0.34.2
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+    logging: *logs
+  proxy:
+    image: caddy:2.11.9-alpine
+    restart: unless-stopped
+    ports:
+      - "${VPS_BIND_ADDRESS:-0.0.0.0}:${VPS_HTTP_PORT:-80}:80"
+      - "${VPS_BIND_ADDRESS:-0.0.0.0}:${VPS_HTTPS_PORT:-443}:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?Set your domain in the private VPS env file}
+      SITE_ORIGIN: ${SITE_ORIGIN:?Set the full HTTPS origin}
+      AUTH_USER: ${AUTH_USER:?Set the private instance username}
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:?Set a Caddy bcrypt password hash}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+    logging: *logs
+volumes:
+  ollama_models:
+  caddy_data:
+  caddy_config:

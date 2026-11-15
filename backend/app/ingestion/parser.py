@@ -46,6 +46,21 @@ def is_heading(text: str) -> bool:
     )
 
 
+def line_text(spans: list[dict]) -> str:
+    """Do not insert spaces inside words split across font/style spans."""
+    parts = []
+    previous = None
+    for span in spans:
+        text = span["text"]
+        if previous and parts and text and not parts[-1].endswith(" ") and not text.startswith(" "):
+            gap = span["bbox"][0] - previous["bbox"][2]
+            if gap > min(span["size"], previous["size"]) * 0.15:
+                parts.append(" ")
+        parts.append(text)
+        previous = span
+    return "".join(parts).strip()
+
+
 def parse_pdf(path: Path, fallback_title: str, max_pages: int, max_chars: int) -> ParsedPaper:
     try:
         # Close the filesystem handle before entering native parsing. A failed native
@@ -72,21 +87,34 @@ def parse_pdf(path: Path, fallback_title: str, max_pages: int, max_chars: int) -
                     flags=pymupdf.TEXTFLAGS_DICT & ~pymupdf.TEXT_PRESERVE_IMAGES,
                 )["blocks"]
                 paragraphs: list[str] = []
-                title_candidates: list[tuple[float, str]] = []
+                title_candidates: list[tuple[float, str, float, float]] = []
                 page_has_text = False
                 for block in blocks:
                     lines: list[str] = []
                     for line in block.get("lines", []):
                         spans = line.get("spans", [])
-                        text = " ".join(span["text"] for span in spans).strip()
+                        text = line_text(spans)
                         extracted += len(text)
                         if extracted > max_chars:
                             raise IngestionError("PDF contains too much extracted text.", 413)
                         if not text:
                             continue
                         page_has_text = True
-                        if number == 1 and len(text) <= 300 and not is_heading(text):
-                            title_candidates.append((max(s["size"] for s in spans), text))
+                        if (
+                            number == 1
+                            and len(text) <= 300
+                            and not is_heading(text)
+                            and abs(line.get("dir", (1, 0))[1]) < 0.1
+                            and line["bbox"][1] < page.rect.height * 0.45
+                        ):
+                            title_candidates.append(
+                                (
+                                    max(s["size"] for s in spans),
+                                    text,
+                                    line["bbox"][1],
+                                    line["bbox"][3],
+                                )
+                            )
                         if is_heading(text):
                             if lines:
                                 paragraphs.append(" ".join(lines))
@@ -102,8 +130,18 @@ def parse_pdf(path: Path, fallback_title: str, max_pages: int, max_chars: int) -
                     if lines:
                         paragraphs.append(" ".join(lines))
                 if number == 1 and not title and title_candidates:
-                    # Largest first-page line; ties prefer the earliest line.
-                    title = max(title_candidates, key=lambda candidate: candidate[0])[1]
+                    # Largest horizontal title block near the top. Ignore rotated
+                    # repository watermarks; preserve equally sized wrapped lines.
+                    first = max(title_candidates, key=lambda candidate: candidate[0])
+                    parts, bottom = [first[1]], first[3]
+                    for size, text, top, end in sorted(title_candidates, key=lambda c: c[2]):
+                        if top <= first[2] or abs(size - first[0]) >= 0.5:
+                            continue
+                        if top - bottom > first[0] * 1.5:
+                            break
+                        parts.append(text)
+                        bottom = end
+                    title = " ".join(parts)[:500]
                     title_source = "first_page"
                 if paragraphs:
                     sections.append(SectionText(number, heading, "\n\n".join(paragraphs)))

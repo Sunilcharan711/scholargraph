@@ -32,6 +32,7 @@ pgdata/
 *.sqlite
 *.sqlite3
 reports/
+deploy/*.env
 # Editors and OS
 .idea/
 .vscode/

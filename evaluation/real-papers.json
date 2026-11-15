@@ -1,0 +1,269 @@
+{
+  "version": 1,
+  "purpose": "Authored development set, not a held-out benchmark. PDFs are downloaded locally, not redistributed.",
+  "papers": [
+    {
+      "id": "1706.03762v7",
+      "title": "Attention Is All You Need",
+      "source_url": "https://arxiv.org/abs/1706.03762v7",
+      "pdf_url": "https://arxiv.org/pdf/1706.03762v7",
+      "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697"
+    },
+    {
+      "id": "1810.04805v2",
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "source_url": "https://arxiv.org/abs/1810.04805v2",
+      "pdf_url": "https://arxiv.org/pdf/1810.04805v2",
+      "sha256": "5692a5514787a8c6727b4ff3b726a3385798bc68e12138d1d4af83947e2acf6e"
+    },
+    {
+      "id": "1908.10084v1",
+      "title": "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks",
+      "source_url": "https://arxiv.org/abs/1908.10084v1",
+      "pdf_url": "https://arxiv.org/pdf/1908.10084v1",
+      "sha256": "92366d22fc0521350d6cbe0ad72bcee754f90e88181d7b4a8e2adb1e7e594fec"
+    },
+    {
+      "id": "2004.04906v3",
+      "title": "Dense Passage Retrieval for Open-Domain Question Answering",
+      "source_url": "https://arxiv.org/abs/2004.04906v3",
+      "pdf_url": "https://arxiv.org/pdf/2004.04906v3",
+      "sha256": "3e67fc1a9977715acf722d85f0b7d124b03715e975f6310a4d6c12094190912f"
+    },
+    {
+      "id": "2005.11401v4",
+      "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+      "source_url": "https://arxiv.org/abs/2005.11401v4",
+      "pdf_url": "https://arxiv.org/pdf/2005.11401v4",
+      "sha256": "23e3249e9a1e75418d82efecab0ea8c4d033b89c93742f63208d47ce01f21233"
+    },
+    {
+      "id": "2004.12832v2",
+      "title": "ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT",
+      "source_url": "https://arxiv.org/abs/2004.12832v2",
+      "pdf_url": "https://arxiv.org/pdf/2004.12832v2",
+      "sha256": "2e487d9b96e3c2e5e286d843e98a066adc0442faa3a6e8ddbd1771221bf9ae14"
+    },
+    {
+      "id": "2007.00808v2",
+      "title": "Approximate Nearest Neighbor Negative Contrastive Learning for Dense Text Retrieval",
+      "source_url": "https://arxiv.org/abs/2007.00808v2",
+      "pdf_url": "https://arxiv.org/pdf/2007.00808v2",
+      "sha256": "3ffc05cd484c56e33fc8806b17df9607043b336dd5c6c6ede83cd87955d23f1f"
+    },
+    {
+      "id": "2104.08821v4",
+      "title": "SimCSE: Simple Contrastive Learning of Sentence Embeddings",
+      "source_url": "https://arxiv.org/abs/2104.08821v4",
+      "pdf_url": "https://arxiv.org/pdf/2104.08821v4",
+      "sha256": "964f6eaf602bcded15e77ea846355a2174887f90e862d501dd4cb3229853877f"
+    },
+    {
+      "id": "2112.09118v4",
+      "title": "Unsupervised Dense Information Retrieval with Contrastive Learning",
+      "source_url": "https://arxiv.org/abs/2112.09118v4",
+      "pdf_url": "https://arxiv.org/pdf/2112.09118v4",
+      "sha256": "7407131fd633561d8eab8701e43ca81061960b6642ae180eb86a3f367b2b8408"
+    },
+    {
+      "id": "2212.03533v2",
+      "title": "Text Embeddings by Weakly-Supervised Contrastive Pre-training",
+      "source_url": "https://arxiv.org/abs/2212.03533v2",
+      "pdf_url": "https://arxiv.org/pdf/2212.03533v2",
+      "sha256": "2963a8af050d983f287edef210a525a69b7071847978451399ccaa3ac584be70"
+    }
+  ],
+  "cases": [
+    {
+      "id": "real-01",
+      "question": "What replaces recurrence and convolutions in the Transformer architecture?",
+      "paper_ids": [
+        "1706.03762v7"
+      ],
+      "evidence_anchors": {
+        "1706.03762v7": "attention mechanisms"
+      },
+      "expected_points": [
+        "The architecture uses attention instead of recurrent or convolutional layers."
+      ],
+      "expected_abstention": false
+    },
+    {
+      "id": "real-02",
+      "question": "How does BERT condition its pretrained representations on context?",
+      "paper_ids": [
+        "1810.04805v2"
+      ],
+      "evidence_anchors": {
+        "1810.04805v2": "left and right context"
+      },
+      "expected_points": [
+        "BERT conditions on both left and right context across layers."
+      ],
+      "expected_abstention": false
+    },
+    {
+      "id": "real-03",
+      "question": "How does Sentence-BERT produce embeddings that can be compared efficiently?",
+      "paper_ids": [
+        "1908.10084v1"
+      ],
+      "evidence_anchors": {
+        "1908.10084v1": "siamese and triplet"
+      },
+      "expected_points": [
+        "Siamese/triplet networks produce sentence vectors compared by cosine similarity."
+      ],
+      "expected_abstention": false
+    },
+    {
+      "id": "real-04",
+      "question": "What encoder framework is used to learn dense representations in DPR?",
+      "paper_ids": [
+        "2004.04906v3"
+      ],
+      "evidence_anchors": {
+        "2004.04906v3": "dual-encoder"
+      },
+      "expected_points": [
+        "DPR uses a dual encoder learned from questions and passages."
+      ],
+      "expected_abstention": false
+    },
+    {
+      "id": "real-05",
+      "question": "How do the two RAG formulations differ in their use of retrieved passages?",
+      "paper_ids": [
+        "2005.11401v4"
+      ],
+      "evidence_anchors": {
+        "2005.11401v4": "per token"
+      },
+      "expected_points": [
+        "One shares retrieved passages throughout a sequence; the other can vary passages per token."
+      ],
+      "expected_abstention": false
+    },
+    {
+      "id": "real-06",
+      "question": "How does late interaction in ColBERT separate encoding from query-document matching?",
+      "paper_ids": [
+        "2004.12832v2"
+      ],
+      "evidence_anchors": {
+        "2004.12832v2": "independently encodes"
+      },
+      "expected_points": [
+        "Query and document are encoded independently, then matched through a fine-grained interaction."
+      ],
+      "expected_abstention": false
+    },
+    {
+      "id": "real-07",
+      "question": "Where does ANCE obtain negative training examples?",
+      "paper_ids": [
+        "2007.00808v2"
+      ],
+      "evidence_anchors": {
+        "2007.00808v2": "index of the corpus"
+      },
+      "expected_points": [
+        "ANCE mines negatives from a corpus ANN index updated during learning."
+      ],
+      "expected_abstention": false
+    },
+    {
+      "id": "real-08",
+      "question": "What augmentation does unsupervised SimCSE use, and what happens without it?",
+      "paper_ids": [
+        "2104.08821v4"
+      ],
+      "evidence_anchors": {
+        "2104.08821v4": "representation collapse"
+      },
+      "expected_points": [
+        "It uses dropout as noise; removing it causes representation collapse."
+      ],
+      "expected_abstention": false
+    },
+    {
+      "id": "real-09",
+      "question": "On how many BEIR datasets does unsupervised Contriever outperform BM25 for Recall@100?",
+      "paper_ids": [
+        "2112.09118v4"
+      ],
+      "evidence_anchors": {
+        "2112.09118v4": "11 out of 15"
+      },
+      "expected_points": [
+        "It outperforms BM25 on 11 of 15 datasets for Recall@100."
+      ],
+      "expected_abstention": false
+    },
+    {
+      "id": "real-10",
+      "question": "What dataset and training objective are used to pretrain E5 embeddings?",
+      "paper_ids": [
+        "2212.03533v2"
+      ],
+      "evidence_anchors": {
+        "2212.03533v2": "CCPairs"
+      },
+      "expected_points": [
+        "E5 uses contrastive pretraining with weak supervision from CCPairs."
+      ],
+      "expected_abstention": false
+    },
+    {
+      "id": "cross-01",
+      "question": "Compare how Sentence-BERT and ColBERT represent texts for similarity search.",
+      "paper_ids": [
+        "1908.10084v1",
+        "2004.12832v2"
+      ],
+      "evidence_anchors": {
+        "1908.10084v1": "cosine",
+        "2004.12832v2": "late interaction"
+      },
+      "expected_points": [
+        "SBERT compares sentence-level vectors by cosine similarity.",
+        "ColBERT retains fine-grained late interaction between independently encoded texts."
+      ],
+      "expected_abstention": false
+    },
+    {
+      "id": "missing-01",
+      "question": "What accuracy did BERT achieve on the ScholarGraph benchmark released in November 2026?",
+      "paper_ids": [
+        "1810.04805v2"
+      ],
+      "evidence_anchors": {},
+      "expected_points": [],
+      "expected_abstention": true
+    },
+    {
+      "id": "missing-02",
+      "question": "What patient survival rate was measured in the clinical trial of Sentence-BERT?",
+      "paper_ids": [
+        "1908.10084v1"
+      ],
+      "evidence_anchors": {},
+      "expected_points": [],
+      "expected_abstention": true
+    },
+    {
+      "id": "limits-01",
+      "question": "What limitations of BERT for semantic similarity search motivate Sentence-BERT?",
+      "paper_ids": [
+        "1908.10084v1"
+      ],
+      "evidence_anchors": {
+        "1908.10084v1": "65 hours"
+      },
+      "expected_points": [
+        "BERT requires joint sentence-pair inference, making large similarity searches computationally expensive."
+      ],
+      "expected_abstention": false
+    }
+  ]
+}

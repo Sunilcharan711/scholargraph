@@ -68,6 +68,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate Compose configuration
         run: docker compose config --quiet
+      - name: Verify VPS services cannot bypass the authenticated proxy
+        env:
+          SITE_ADDRESS: ci.invalid
+          SITE_ORIGIN: https://ci.invalid
+          AUTH_USER: ci
+          AUTH_PASSWORD_HASH: config_validation_only
+        run: |
+          docker compose -f docker-compose.yml -f compose.vps.yml config --format json | python3 -c 'import json,sys; s=json.load(sys.stdin)["services"]; assert all(not s[n].get("ports") for n in ("db","backend","frontend","ollama")); assert s["proxy"]["ports"]'
       - name: Build and start the stack
         run: docker compose up --build -d --wait --wait-timeout 180
       - name: Verify frontend, proxy and database

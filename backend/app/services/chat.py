@@ -50,6 +50,18 @@ class AnswerProvider(Protocol):
     def generate(self, question: str, evidence: list[dict]) -> GeneratedAnswer: ...
 
 
+def merge_duplicate_claims(claims: list[Claim]) -> list[Claim]:
+    """Collapse repeated wording while preserving every validated source ID."""
+    result: dict[str, Claim] = {}
+    for claim in claims:
+        key = " ".join(claim.text.split()).casefold()
+        if key not in result:
+            result[key] = Claim(text=claim.text, sources=list(dict.fromkeys(claim.sources)))
+        else:
+            result[key].sources = list(dict.fromkeys(result[key].sources + claim.sources))
+    return list(result.values())
+
+
 def missing_requested_metric(question: str, evidence: list[dict]) -> bool:
     """Decline a requested reported metric when the passages never discuss it.
 
@@ -249,7 +261,9 @@ def answer_question(
                 for claim in generated.claims
             ):
                 raise HTTPException(502, "Answer contained an invalid citation. Please try again.")
-            generated.claims = preserve_limitations(request.question, generated.claims, citations)
+            generated.claims = merge_duplicate_claims(
+                preserve_limitations(request.question, generated.claims, citations)
+            )
             used = sorted({source for claim in generated.claims for source in claim.sources})
             answer = "\n\n".join(
                 claim.text.strip()
