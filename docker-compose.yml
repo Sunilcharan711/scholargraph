@@ -21,7 +21,7 @@ services:
       - "127.0.0.1:8000:8000"
     environment:
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
-      CHAT_MODEL: ${CHAT_MODEL:-qwen2.5:1.5b}
+      CHAT_MODEL: ${CHAT_MODEL:-qwen3:4b}
       OLLAMA_URL: ${DOCKER_OLLAMA_URL:-http://host.docker.internal:11434}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DATABASE_URL: postgresql+psycopg://scholargraph:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/scholargraph

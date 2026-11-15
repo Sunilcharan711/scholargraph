@@ -43,3 +43,20 @@ def test_review_requires_explicit_judgments_and_handles_abstention():
     assert metrics["unsupported_claim_rate"]["rate"] is None
     assert metrics["answer_relevance"]["rate"] == 1
     assert metrics["context_relevance"]["rate"] == 0
+
+
+def test_recorder_observes_final_source_quotations():
+    from unittest.mock import Mock
+
+    from run_rag_eval import Recorder
+
+    from app.schemas.chat import Claim, GeneratedAnswer
+
+    provider = Mock()
+    provider.generate.return_value = GeneratedAnswer(
+        insufficient_evidence=False, claims=[Claim(text="Draft", sources=[1])]
+    )
+    recorder = Recorder(provider)
+    result = recorder.generate("Question", [{"source": 1, "text": "No measurements."}])
+    result.claims = [Claim(text='"No measurements."', sources=[1])]
+    assert recorder.claims == [{"text": '"No measurements."', "sources": [1]}]

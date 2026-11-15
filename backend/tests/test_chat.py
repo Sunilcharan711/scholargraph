@@ -4,8 +4,55 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.schemas.chat import Claim, GeneratedAnswer
-from app.services.chat import OllamaProvider
+from app.schemas.chat import Citation, Claim, GeneratedAnswer
+from app.services.chat import OllamaProvider, missing_requested_metric, preserve_limitations
+
+
+def test_unreported_metric_is_not_inferred_from_corpus_size():
+    evidence = [{"text": "Only three synthetic documents were evaluated."}]
+    assert missing_requested_metric("What accuracy did the system achieve?", evidence)
+    assert not missing_requested_metric("What method measures accuracy?", evidence)
+    assert not missing_requested_metric("How is accuracy measured?", evidence)
+    for text in ("Accuracy was 92%.", "92% of predictions were correct."):
+        assert not missing_requested_metric("What accuracy did it achieve?", [{"text": text}])
+
+
+def test_limitations_keep_missing_measurements_and_separate_papers():
+    citations = {
+        i: Citation(
+            source=i,
+            paper_id=uuid4(),
+            paper_title=f"Study {i}",
+            chunk_id=uuid4(),
+            page=3,
+            section="Limitations",
+            snippet=text,
+            relevance_score=1,
+        )
+        for i, text in enumerate(
+            [
+                "No measured improvement or validated savings are reported [7]. Conditions vary.",
+                "Only three synthetic documents were evaluated. Generalization is not established.",
+            ],
+            1,
+        )
+    }
+    claims = [
+        Claim(text="Conditions vary.", sources=[1]),
+        Claim(text="The corpus is small.", sources=[2]),
+        Claim(text="Another paraphrase.", sources=[1]),
+    ]
+    result = preserve_limitations("What limits the conclusions of both studies?", claims, citations)
+    assert len(result) == 2
+    assert "No measured improvement or validated savings" in result[0].text
+    assert "〔7〕" in result[0].text and "[7]" not in result[0].text
+    assert "three synthetic documents" in result[1].text
+    assert [c.sources for c in result] == [[1], [2]]
+    assert preserve_limitations("How does the method work?", claims, citations) == claims
+    citations[1].section = "Methods"
+    assert preserve_limitations("What are the limitations?", claims, citations)[0] == claims[0]
+    mixed = [Claim(text="Vague conclusion.", sources=[1, 2])]
+    assert preserve_limitations("What are the limitations?", mixed, citations) == [result[1]]
 
 
 def test_empty_evidence_never_calls_model(client):
@@ -125,6 +172,8 @@ def test_ollama_transport_and_invalid_output(config, monkeypatch):
         .insufficient_evidence
     )
     assert seen[0]["stream"] is False and seen[0]["format"]["type"] == "object"
+    # Reasoning models must spend the bounded output budget on the answer.
+    assert seen[0]["think"] is False
     assert seen[0]["format"]["$defs"]["Claim"]["properties"]["sources"]["items"]["enum"] == [1]
     assert "untrusted" in seen[0]["messages"][0]["content"]
 

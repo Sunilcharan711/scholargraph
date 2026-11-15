@@ -11,13 +11,18 @@ class Recorder:
     def __init__(self, provider):
         self.provider = provider
         self.context = []
-        self.claims = []
+        self.generated = None
+
+    @property
+    def claims(self):
+        # The answer pipeline can replace paraphrases with source quotations.
+        # Review the final claims that reached the user, not the earlier draft.
+        return [claim.model_dump() for claim in self.generated.claims] if self.generated else []
 
     def generate(self, question, evidence):
         self.context = evidence
-        result = self.provider.generate(question, evidence)
-        self.claims = [claim.model_dump() for claim in result.claims]
-        return result
+        self.generated = self.provider.generate(question, evidence)
+        return self.generated
 
 
 def score(rows):

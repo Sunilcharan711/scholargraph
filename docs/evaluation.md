@@ -61,7 +61,7 @@ question or correctly abstained. The answers covered 2/9 full expected points,
 and 7/35 supplied passages were labeled relevant. All three returned claim blocks
 were supported somewhere in context, but only 3/11 attached citations supported
 their claim. The model also abstained on three answerable questions. These judgments
-are available with the answers and evidence in `reports/rag-scored.json`.
+are available with the answers and evidence in `reports/rag-scored-baseline-nov12.json`.
 
 ### Timing
 
@@ -141,3 +141,82 @@ A real-model six-case comparison and stricter response validation are documented
 [Milestone 5](milestone-5.md). Expected answer/abstention decisions improved from 3/6
 to 5/6; this is not a held-out accuracy benchmark. One false abstention and redundant
 citations remain.
+
+## November 15 answer-model comparison
+
+The initial November 15 setup template and Docker fallback used `qwen2.5:3b`. The original prompt,
+structured-output schema, and retrieval settings are unchanged. Codex reviewed all
+answers and cited passages from one local run against the same seven authored
+questions used for the 1.5B baseline. This is a development comparison, not a
+held-out benchmark or evidence of accuracy on real research papers.
+
+| Measure | 1.5B baseline | 3B run |
+| --- | --- | --- |
+| Fully relevant answers or correct abstentions | 3/7 | 5/7 |
+| Full expected points covered | 2/9 | 6/9 |
+| Claims supported somewhere in supplied context | 3/3 | 8/8 |
+| Attached citations supporting their claim | 3/11 | 8/8 |
+| False abstentions on answerable questions | 3 | 0 |
+
+The 3B model still answered the source-mapping question with an unrelated retrieval
+explanation. It also omitted the greenhouse half of a two-paper comparison; this
+partial answer was counted as a relevance failure. Supported statements can still
+be irrelevant or incomplete. Supplied-context relevance remained 7/35.
+
+The separate six-case scoped Q&A check matched all six expected answer/abstention
+decisions, with valid source metadata in all six cases. Manual inspection found
+the four substantive answers supported by their cited passages; the two absent
+answers were correctly declined. Total request times ranged from 2.09 to 12.26
+seconds on this machine. These scoped timings are not directly comparable to the
+seven-question baseline timing above. The larger model needs more memory and disk.
+
+Local artifacts: `reports/rag-reviewed-3b-nov15.json`, `reports/rag-scored.json`,
+and `reports/qa-3b-nov15.json`. Reports are ignored by Git. Reproduce using
+`CHAT_MODEL=qwen2.5:3b` with `scripts/run_rag_eval.py` and
+`scripts/evaluate_qa.py --label qa-3b-nov15`, then review each answer and source
+before scoring. Prompt/schema experiments were rejected because they introduced
+incorrect answers or did not consistently improve these checks.
+
+## November 15 Q&A regression fixes
+
+The current setup uses `qwen3:4b` with Ollama thinking disabled. Qwen2.5 3B and
+7B candidates still failed the reported questions; they are not the selected
+fix. Qwen3 thinking mode exceeded the existing 120-second request timeout on
+this host, so generation explicitly uses `think: false` and keeps the timeout.
+
+The prompt now requires separate coverage of requested studies and explicit
+measurement/validation gaps. For limitations questions, claims citing a labeled
+limitations section are replaced with the supplied source excerpt when it fits
+within 1,800 characters. This preserves negative results and qualifications, and
+avoids replacing them with a vague paraphrase. Only already-cited passages are
+used; unknown source IDs are still rejected before this step. Other questions
+and longer excerpts keep the normal generation path. Numeric references inside
+quoted paper text use distinct brackets so they cannot impersonate app citations.
+
+Run `uv run --project backend python scripts/check_answer_regressions.py` with
+Ollama running and the configured model installed. It checks the citation-mapping
+question and the two-paper limitations question at both `top_k=5` and `top_k=6`.
+All four cases failed with the previous 3B setup; all four passed with this fix.
+The checks require relevant citations and expected concepts, not merely HTTP 200.
+Inspect the actual answers in `reports/answer-regressions.json` as well: keyword
+and citation coverage alone do not establish semantic correctness on unseen papers.
+The RAG evaluator now records final displayed claims, including source quotations,
+rather than the model's earlier draft.
+
+The Windows launcher reads `/api/status` before reporting its storage mode, so
+reusing the Docker stack reports PostgreSQL instead of incorrectly saying SQLite.
+
+A conservative pre-generation check also declines a requested reported metric
+when the retrieved passages do not discuss that metric or its supported aliases.
+This prevents absent accuracy measurements from becoming claims of zero or failed
+accuracy. It is an absence check, not a numerical fact checker; definition and
+methodology questions continue through generation.
+
+Final verification: 41 focused backend tests passed, with Ruff lint/format checks
+passing. All six scoped Q&A cases matched expected answer/abstention decisions
+and source metadata checks (`reports/qa-qwen3-verified.json`). Their total request
+times ranged from about 0.03 seconds for the early metric abstention to 15.42
+seconds for generated answers. The four substantive answers were inspected
+against their cited excerpts. These are authored synthetic development cases,
+not a held-out quality benchmark. The original two failures also have dedicated
+checks at both evidence budgets as described above.

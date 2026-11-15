@@ -154,7 +154,7 @@ endpoint still works and paper routes return 503. The API never silently creates
 In another terminal, run `npm ci --prefix frontend` and
 `npm run dev --prefix frontend`, then open [ScholarGraph](http://localhost:3000).
 Install Node.js 22+ and npm first. Generated answers require a running Ollama
-server and the configured model, for example `ollama pull qwen2.5:1.5b`.
+server and the configured model, for example `ollama pull qwen3:4b`.
 The [walkthrough](docs/demo.md) covers model startup and sample questions.
 
 ### Upgrading from Milestone 1
@@ -245,7 +245,7 @@ not the shell working directory. Existing Milestone 0 users should change
 | MAX_EXTRACTED_CHARS | 2000000 |
 | CHUNK_SIZE_TOKENS | 400 approximate tokens |
 | CHUNK_OVERLAP_TOKENS | 60; must be smaller than chunk size |
-| LLM_PROVIDER / CHAT_MODEL | ollama / qwen2.5:1.5b in the template; local generation |
+| LLM_PROVIDER / CHAT_MODEL | ollama / qwen3:4b in the template; local generation |
 | OLLAMA_URL | http://127.0.0.1:11434 for the native backend |
 | DOCKER_OLLAMA_URL | http://host.docker.internal:11434 for the Compose backend |
 | EMBEDDING_MODEL | sentence-transformers/all-MiniLM-L6-v2; configurable Hub repository ID |

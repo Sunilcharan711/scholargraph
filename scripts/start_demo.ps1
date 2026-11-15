@@ -43,5 +43,11 @@ for ($attempt = 0; $attempt -lt 30; $attempt++) {
 }
 if (!(IsReady 'http://127.0.0.1:3000/api/health')) { throw 'Demo did not become ready. Inspect data/demo-*.stderr.log.' }
 $started | Select-Object Id, ProcessName | Format-Table
-Write-Host 'ScholarGraph is ready at http://127.0.0.1:3000 (SQLite demo).'
+$serviceStatus = Invoke-RestMethod 'http://127.0.0.1:3000/api/status' -TimeoutSec 5
+$storageLabel = switch ($serviceStatus.storage) {
+    'sqlite-demo' { 'SQLite demo' }
+    'postgresql' { 'PostgreSQL' }
+    default { 'storage unconfigured or unknown' }
+}
+Write-Host "ScholarGraph is ready at http://127.0.0.1:3000 ($storageLabel)."
 Write-Host 'New process IDs are listed above. Use Stop-Process -Id <ID> to stop those processes.'

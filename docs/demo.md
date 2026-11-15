@@ -23,7 +23,7 @@ Open http://127.0.0.1:3000. The launcher uses installed tools, with fallbacks to
 local runtimes prepared during development. It starts hidden processes and prints
 new process IDs; stop those using `Stop-Process -Id <ID>` when finished. Logs are in
 `data/demo-*.log`. Already running services are reused. The launcher does not download
-an answer model; this machine already has `qwen2.5:1.5b` in `data/ollama-models`.
+an answer model; this machine already has `qwen3:4b` in `data/ollama-models`.
 
 ## Fresh checkout (Windows, macOS or Linux)
 
@@ -33,7 +33,7 @@ Copy `.env.example` to `.env` only if `.env` does not exist. Never commit creden
 ```sh
 uv sync --project backend --python 3.12 --locked
 npm ci --prefix frontend
-ollama pull qwen2.5:1.5b
+ollama pull qwen3:4b
 ```
 
 Start Ollama if its service is not already running (`ollama serve`). Leave these two
@@ -80,9 +80,10 @@ run Alembic or pgvector. Do not use this launcher for a public deployment or as 
 that PostgreSQL integration passed. Existing PostgreSQL data is separate and untouched.
 Demo schemas have no migration guarantee; preserve data before changing schema versions.
 
-`LLM_PROVIDER=ollama`, `CHAT_MODEL=qwen2.5:1.5b`, and
+`LLM_PROVIDER=ollama`, `CHAT_MODEL=qwen3:4b`, and
 `OLLAMA_URL=http://127.0.0.1:11434` configure answers. Larger compatible instruction
-models can improve quality, at a memory/latency cost. A small model can misunderstand
+models can improve quality, at a memory/latency cost. The answer client disables
+Ollama thinking to keep generation within its request and output budgets. A small model can misunderstand
 a question, cite weak evidence, or fail to abstain. Source IDs are checked, but semantic
 entailment is not automatically established. Model errors are explicit; no fake answer
 or silent extractive fallback is substituted. Requests have a 120-second model timeout.
