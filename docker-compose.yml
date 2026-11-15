@@ -22,7 +22,7 @@ services:
     environment:
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
       CHAT_MODEL: ${CHAT_MODEL:-qwen2.5:1.5b}
-      OLLAMA_URL: http://host.docker.internal:11434
+      OLLAMA_URL: ${DOCKER_OLLAMA_URL:-http://host.docker.internal:11434}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DATABASE_URL: postgresql+psycopg://scholargraph:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/scholargraph
       UPLOAD_DIR: /data/uploads
@@ -61,7 +61,8 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     init: true
 volumes:
   postgres_data:

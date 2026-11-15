@@ -66,7 +66,14 @@ def pdf_bytes() -> bytes:
 
 @pytest.fixture
 def config(tmp_path: Path) -> Settings:
-    return Settings(_env_file=None, database_url="", upload_dir=tmp_path / "uploads")
+    return Settings(
+        _env_file=None,
+        database_url="",
+        upload_dir=tmp_path / "uploads",
+        llm_provider="",
+        chat_model="",
+        reranker_model="",
+    )
 
 
 @pytest.fixture

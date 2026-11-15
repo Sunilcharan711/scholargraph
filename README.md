@@ -16,7 +16,8 @@ Run the demo using [the setup and walkthrough](docs/demo.md).
 
 The demo uses an explicitly labeled SQLite adapter with real MiniLM embeddings.
 PostgreSQL/pgvector integration passed in GitHub Actions using deterministic test embeddings.
-Local PostgreSQL and the full Docker Compose stack remain unverified.
+The full Docker Compose stack and local PostgreSQL integration passed on November 14.
+See [Docker verification](docs/milestone-11.md) for the tested scope and model-cache setup.
 See [current verification evidence](docs/verification-2026-10-13.md). The local Q&A reliability pass improves evidence selection and output validation;
 [the six-case check](docs/milestone-5.md) still shows one false abstention and redundant
 citations. This is a working development demo, not a finished research product.
@@ -153,7 +154,7 @@ revision changes, reindex: incompatible vectors are excluded, never mixed in sea
 Migration downgrade to Milestone 1 clears generated vectors and their metadata;
 it preserves paper text and chunks. Back up before intentionally downgrading.
 
-### Docker foundation
+### Docker stack
 
 With `POSTGRES_PASSWORD` set in `.env`:
 
@@ -162,10 +163,10 @@ docker compose up --build
 ```
 
 Compose configures PostgreSQL/pgvector, waits for database health, runs migrations,
-and starts the backend. Database, upload, and model-cache data use separate named volumes. Ports
-bind only to localhost. The frontend is served on localhost:3000. **This configuration has
-not been executed locally because Docker is unavailable.** The single-backend migration
-startup is intended for local use; coordinate migrations separately before scaling replicas.
+and waits for backend readiness before starting the frontend. Database, upload and
+model-cache data use separate named volumes. Ports bind to localhost. The frontend
+is served on localhost:3000. See [Docker setup and verification](docs/milestone-11.md)
+for model configuration, health checks, persistent storage and shutdown commands.
 
 ## API usage
 
@@ -306,9 +307,9 @@ unavailable storage during rollback, or an ambiguous database commit can require
 reconciliation. Preserve backups; inspect `deleting` records and application logs when
 recovering. Never treat an unreferenced file as safe to delete without investigation.
 
-The health endpoint is liveness only, not database readiness. Docker dependencies use
-bounded package ranges rather than a locked image build; reproducible image hardening
-remains part of Milestone 11. Two upstream test-client deprecation warnings are documented.
+The health endpoint reports process liveness. The backend container's readiness
+check also queries the database-backed paper catalog. Docker builds use the committed
+application dependency lockfiles. Two upstream test-client deprecation warnings are documented.
 
 Dense-only retrieval can miss exact identifiers or rare technical terms. Window averaging
 can dilute a small relevant passage. A similarity score is not evidence that a claim is true.
@@ -332,8 +333,8 @@ applied. Arbitrary model compatibility is not guaranteed. See [retrieval notes](
 | 8 | Research interface | Landing, library, paper records, scoped chat, search diagnostics, comparison, interactive graph and recorded evaluation dashboard |
 | 9 | Retrieval, generation, and latency evaluation | Labeled synthetic cases, retrieval metrics, reviewed answers and latency scripts implemented; real reranker measurement pending |
 | 10 | Broader testing and quality | Backend regression tests, frontend ESLint, TypeScript, production build and desktop/mobile checks enforced in CI |
-| 11 | Full Docker Compose stack | Configuration added; local execution pending |
-| 12 | GitHub Actions | Backend and frontend jobs passed for c195577 |
+| 11 | Full Docker Compose stack | Built and verified locally with PostgreSQL, real embeddings, cited answers and restart persistence |
+| 12 | GitHub Actions | Backend, frontend and full Docker startup/restart checks configured on pushes and pull requests |
 | 13 | Final documentation | Planned |
 
 Screenshots show the actual local demo. A demo recording and broader generation evaluation
