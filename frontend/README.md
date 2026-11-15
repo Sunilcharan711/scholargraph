@@ -8,7 +8,8 @@ From the repository root: `npm ci --prefix frontend`, then
 See [demo setup](../docs/demo.md) for the complete walkthrough.
 
 Production checks: `npm run build --prefix frontend` and
-`npm run typecheck --prefix frontend`. Browser tests use Playwright with mocked API
+`npm run typecheck --prefix frontend`, plus `npm run lint --prefix frontend`.
+Browser tests use Playwright with mocked API
 responses; install Chromium and run `npm run test:e2e --prefix frontend`.
 ## Research workspace
 

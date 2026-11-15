@@ -1,10 +1,17 @@
 # Running the local demo
 
-This demo covers upload, a persistent paper library, three search methods, and local
-question answering with clickable page citations. Comparison, graphs, reranking,
-and public multi-user hosting are outside this demo scope.
+The local workspace supports upload, a persistent library, three search methods,
+questions with page citations, paper comparison and semantic graph exploration.
+Optional reranking is configured through the API. Public multi-user hosting remains
+future work.
 
 ## On this Windows machine
+
+For the verified Docker setup, start Docker Desktop and run
+`docker compose up -d --wait` from the repository root. Open
+[ScholarGraph](http://localhost:3000). Use the SQLite launcher below when choosing
+the separate lightweight demo. Stop Compose first with `docker compose down`
+because both configurations use ports 3000 and 8000.
 
 From the repository root:
 
@@ -56,6 +63,12 @@ MiniLM model; subsequent uploads reuse its cache. Do not enable
    whether the model abstains. Inspect evidence rather than assuming the answer is correct.
 8. Delete a sample using its × control and confirm that it disappears from the library.
 
+Before deleting samples, select two papers and open **Compare papers**. Choose
+methodology or limitations and inspect the sources in each cell. Open a paper's
+**Graph** link to view its semantic neighbors and adjust the similarity threshold.
+The **Evaluation** page shows historical September/October results. See
+[the evaluation guide](evaluation.md) for the November passage-level results.
+
 All sample text is original and explicitly synthetic. It is not published research.
 Do not upload the same samples repeatedly unless duplicate papers are intentional.
 
@@ -87,8 +100,10 @@ localhost:3000. Ollama remains on the host; backend containers use
 `host.docker.internal:11434`. A host Ollama bound only to 127.0.0.1 may not accept
 container connections. Configure its binding/firewall appropriately or run the native
 backend for local-only Ollama. Docker and live PostgreSQL were unavailable on the
-Windows development host; this path remains unverified locally. The added CI workflow
-runs the disposable PostgreSQL integration test when pushed; no CI success is claimed yet.
+Windows development host during the original September walkthrough. The full stack
+was subsequently built and verified on November 14, including real embeddings,
+a cited answer and persistence across restart. All three CI jobs passed on November 15.
+See [Docker setup](milestone-11.md) and [CI verification](milestone-12.md).
 
 ## Verification commands
 
@@ -97,6 +112,7 @@ uv run --project backend pytest -c backend/pyproject.toml
 uv run --project backend ruff check backend scripts
 uv run --project backend ruff format --check backend scripts
 npm run build --prefix frontend
+npm run lint --prefix frontend
 npm run typecheck --prefix frontend
 cd frontend
 npx playwright install chromium

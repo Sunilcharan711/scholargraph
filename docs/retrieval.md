@@ -91,8 +91,8 @@ recall, and latency measurements should drive a later approximate-index decision
   actual model weights; `--api-url http://localhost:8000` instead checks existing server
   data without uploading or deleting papers. Reports are saved under ignored reports/.
 
-The smoke corpus is intentionally tiny and is not the evaluation dataset planned for
-Milestone 9. It establishes basic behavior, not general research retrieval quality.
+The smoke corpus establishes basic behavior. The passage-labeled evaluation and its
+limits are described in [evaluation](evaluation.md).
 
 ## Failure cases and model changes
 
@@ -135,7 +135,7 @@ Scores change when the selected corpus changes. They are not comparable across q
 
 Retriever.retrieve(session, request, limit) returns typed RetrievalBatch/ RetrievalHit data.
 DenseRetriever and BM25Retriever implement the same contract. The search service owns
-mode dispatch, diagnostics, timing and response assembly, ready for reuse in later RAG.
+mode dispatch, diagnostics, timing and response assembly, shared with chat and comparison.
 
 Hybrid runs both retrievers with a candidate budget of max(top_k, SEARCH_CANDIDATE_LIMIT).
 It does not truncate each list to the final top_k before fusion. Each chunk contributes
@@ -151,6 +151,29 @@ return errors rather than presenting a silent single-method fallback as hybrid s
 The two legs use sequential database reads; concurrent changes can be observed between
 legs under default PostgreSQL isolation. Strict snapshot consistency is not promised.
 
-The API exposes separate raw-score/rank diagnostics and stage timings. This milestone
-has correctness tests and small real-model smoke checks, not a retrieval benchmark or
-proof that hybrid universally outperforms either method. Milestone 9 will measure that.
+The API exposes separate raw-score/rank diagnostics and stage timings. The current
+evaluation uses six answerable questions across three synthetic papers. Its scores
+and the remaining real-reranker measurement are documented in [evaluation](evaluation.md).
+
+## Optional cross-encoder
+
+Set `RERANKER_MODEL` and send `rerank: true` to search, chat or comparison.
+The model scores full stored passage text paired with the query using bounded
+512-token inputs. It loads locally from safetensors with remote model code disabled.
+The candidate budget defaults to 20 and can be configured from 1 to 50 using
+`RERANKER_CANDIDATE_LIMIT`. The service retains enough candidates to satisfy top_k,
+then sorts scores with deterministic chunk-ID tie breaks before returning the cutoff.
+
+Reranked results have `score_type: cross_encoder`. Diagnostics retain the original
+retrieval rank and score alongside `reranker_score`. Response metadata includes
+`rerank_ms`, `reranked_count` and `reranker_model`. Scores are model outputs whose
+scale requires evaluation. Missing weights and invalid scores produce explicit errors.
+Without reranking, the ordinary retrieval ordering applies.
+
+## Retrieval for answers
+
+Chat retrieves up to three times its requested evidence count before removing
+duplicate passages and repeated metadata titles. The final context is bounded
+by excerpt count and character limits. Citation IDs map to those supplied excerpts.
+Selecting a paper restricts eligible evidence at retrieval time. See the
+[architecture](architecture.md) for generation and citation validation.

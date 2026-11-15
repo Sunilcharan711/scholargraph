@@ -72,6 +72,17 @@ The total includes evidence assembly, validation and request handling. Corpus
 indexing happens before timing. The first query is included, so model startup may
 affect it. A disabled reranker contributes zero elapsed time.
 
+The November 12 hybrid run used seven requests and one repetition, with reranking
+disabled and local Qwen2.5 1.5B generation. Median embedding time was 33.24 ms,
+retrieval 32.36 ms, generation 3,897.95 ms and total request time 4,010.90 ms.
+Total p95 was 37,264.99 ms. Startup is included in the sample sequence. The small
+sample and unspecified host load limit comparisons across machines.
+
+Generated reports are ignored by Git and must be reproduced or reviewed in the local
+workspace. The frontend Evaluation page bundles older paper-level retrieval and
+abstention checks from September/October. The passage-level scores above use a
+different question set and relevance unit.
+
 ## Demo verification — September 22, 2026
 
 ## Retrieval smoke evaluation

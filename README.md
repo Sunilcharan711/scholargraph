@@ -5,7 +5,8 @@ An AI research intelligence system for searching, comparing, and reasoning acros
 ## Development status
 
 From the landing page, open **Library** to upload PDFs or read a paper record.
-Use **Evaluation** for the recorded synthetic retrieval and Q&A baselines.
+Use **Evaluation** for the historical synthetic retrieval and Q&A baselines.
+The newer passage-level evaluation is recorded in [evaluation results](docs/evaluation.md).
 The research workspace supports PDF upload, dense/BM25/hybrid search, grounded
 Q&A, and side-by-side paper comparison. To compare, select **2–4 papers** in the
 library, open **Compare papers**, and choose a topic. Run another topic to add
@@ -14,13 +15,21 @@ Run the demo using [the setup and walkthrough](docs/demo.md).
 
 ![Real local search interface](docs/images/search-desktop.png)
 
-The demo uses an explicitly labeled SQLite adapter with real MiniLM embeddings.
-PostgreSQL/pgvector integration passed in GitHub Actions using deterministic test embeddings.
-The full Docker Compose stack and local PostgreSQL integration passed on November 14.
-See [Docker verification](docs/milestone-11.md) for the tested scope and model-cache setup.
-See [current verification evidence](docs/verification-2026-10-13.md). The local Q&A reliability pass improves evidence selection and output validation;
-[the six-case check](docs/milestone-5.md) still shows one false abstention and redundant
-citations. This is a working development demo, not a finished research product.
+![Answer with inspectable sources](docs/images/answer-desktop.png)
+
+These screenshots were captured during the September local demo. The current workspace
+also includes comparison, paper records and graph exploration.
+
+**Demo GIF placeholder — recording pending.**
+
+The full Docker Compose stack and local PostgreSQL integration passed on November 14,
+including real PDF ingestion, embeddings, a cited answer and data persistence after restart.
+The explicit SQLite launcher remains available for a lightweight local trial.
+The November 15 GitHub Actions run passed backend, frontend and Docker checks.
+[View the verified run](https://github.com/Sunilcharan711/scholargraph/actions/runs/43685954899)
+
+Answer quality remains a development priority. A seven-question synthetic evaluation
+found three false abstentions and several irrelevant citations.
 
 See [verification and evaluation](docs/evaluation.md) for measured results and limits.
 
@@ -39,8 +48,11 @@ Available:
 - Model/revision/dimension isolation and explicit backfill for existing paper chunks.
 - BM25 keyword search and hybrid Reciprocal Rank Fusion with optional rank/score diagnostics.
 
-Available demo additions: local Ollama answers, deterministic citation mapping, PDF page viewing,
-a responsive Next.js library/search/Q&A interface, sample documents, and a small retrieval evaluation.
+- Local Ollama answers, source-ID validation, evidence excerpts and PDF page links.
+- Comparison of 2–4 papers across eight dimensions with per-cell evidence.
+- Semantic graph neighborhoods with similarity thresholds and keyboard navigation.
+- Paper records, scoped navigation, retrieval diagnostics and historical evaluation views.
+- Optional local cross-encoder reranking and reproducible evaluation scripts.
 
 Open **Explore Scholar Graph** in the workspace to discover related papers, inspect
 their similarity scores, and follow a link to another paper's neighborhood.
@@ -54,11 +66,17 @@ flowchart LR
     Chunks --> DB[(PostgreSQL)]
     Chunks --> Embeddings --> pgvector --> Dense[Exact cosine search]
     Chunks --> BM25
-    pgvector --> Fusion[Hybrid retrieval / RRF]
+    Dense --> Fusion[Hybrid retrieval / RRF]
     BM25 --> Fusion
     Fusion --> Reranker[Optional reranker] --> LLM[Provider abstraction]
-    LLM --> Answer[Grounded answer and citations]
+    LLM --> Answer[Validate claims and map citations]
 ```
+
+The [architecture guide](docs/architecture.md) explains ingestion, indexing, retrieval,
+generation, comparison, graphs and deployment. A query is embedded for dense search,
+tokenized for BM25, and fused by rank. An optional cross-encoder reorders candidates.
+Chat loads bounded source excerpts, asks the model for structured claims and maps
+validated source IDs to stored PDF pages.
 
 Current stack: Python 3.11+, FastAPI, Pydantic Settings, SQLAlchemy 2, Alembic,
 psycopg, PostgreSQL/pgvector, PyMuPDF, sentence-transformers, PyTorch, pytest, httpx, and Ruff.
@@ -69,13 +87,13 @@ Frontend: Next.js, React, TypeScript, and responsive CSS. BM25 and RRF run local
 ```text
 backend/
   app/
-    api/          Health, paper, and search routes
+    api/          Health, papers, search, chat, comparison and graph routes
     core/         Settings, logging, upload body limit, domain errors
     db/           Declarative base and session dependencies
-    models/       Papers and chunks
+    models/       Papers, chunks and research graph records
     schemas/      Public response models
     ingestion/    Storage validation, parser, chunker
-    retrieval/    Embedding provider and exact pgvector search
+    retrieval/    Embeddings, pgvector search, BM25, fusion and reranking
     services/     Ingestion, indexing, and deletion workflows
     main.py       Application factory
   alembic/        PostgreSQL migration
@@ -85,7 +103,9 @@ backend/
   Dockerfile
 frontend/         Next.js research workspace and browser tests
 scripts/          Real-model/API smoke check and explicit paper indexing
+evaluation/       Authored questions and passage relevance labels
 docs/             API, architecture, and milestone verification notes
+reports/          Generated local results, excluded from Git
 ```
 
 ## Installation and local development
@@ -99,6 +119,9 @@ uv sync --project backend --python 3.12
 ```
 
 On macOS/Linux use `cp .env.example .env`. Dependencies are resolved in `backend/uv.lock`.
+Use `uv sync --project backend --python 3.12 --locked --extra cpu` for the CPU
+option used by Docker and CI. Include `--extra cpu` in subsequent
+`uv run --project backend` commands to retain that option.
 
 ### PostgreSQL plus native backend
 
@@ -127,6 +150,12 @@ uv run --project backend uvicorn app.main:app --app-dir backend --reload
 
 Open [API docs](http://localhost:8000/docs). With an empty `DATABASE_URL`, the health
 endpoint still works and paper routes return 503. The API never silently creates tables.
+
+In another terminal, run `npm ci --prefix frontend` and
+`npm run dev --prefix frontend`, then open [ScholarGraph](http://localhost:3000).
+Install Node.js 22+ and npm first. Generated answers require a running Ollama
+server and the configured model, for example `ollama pull qwen2.5:1.5b`.
+The [walkthrough](docs/demo.md) covers model startup and sample questions.
 
 ### Upgrading from Milestone 1
 
@@ -218,6 +247,7 @@ not the shell working directory. Existing Milestone 0 users should change
 | CHUNK_OVERLAP_TOKENS | 60; must be smaller than chunk size |
 | LLM_PROVIDER / CHAT_MODEL | ollama / qwen2.5:1.5b in the template; local generation |
 | OLLAMA_URL | http://127.0.0.1:11434 for the native backend |
+| DOCKER_OLLAMA_URL | http://host.docker.internal:11434 for the Compose backend |
 | EMBEDDING_MODEL | sentence-transformers/all-MiniLM-L6-v2; configurable Hub repository ID |
 | EMBEDDING_REVISION | main; resolved commit is recorded with each vector |
 | EMBEDDING_DEVICE | cpu; native runtimes may select another supported device |
@@ -227,6 +257,9 @@ not the shell working directory. Existing Milestone 0 users should change
 | EMBEDDING_CACHE_DIR | data/models, relative to repository root |
 | EMBEDDING_LOCAL_FILES_ONLY | false; set true after the model cache is populated |
 | RERANKER_MODEL | Optional cross-encoder model ID; disabled by default |
+| RERANKER_REVISION / RERANKER_LOCAL_FILES_ONLY | main / false; model revision and offline loading |
+| RERANKER_CANDIDATE_LIMIT / RERANKER_BATCH_SIZE | 20 / 8; bounded inference work |
+| GRAPH_MIN_SIMILARITY / GRAPH_MAX_NEIGHBORS / GRAPH_MAX_PAPERS | 0.45 / 5 / 200 |
 
 No real credentials, uploaded PDFs, generated data, or local databases belong in Git.
 
@@ -236,7 +269,20 @@ No real credentials, uploaded PDFs, generated data, or local databases belong in
 uv run --project backend pytest -c backend/pyproject.toml
 uv run --project backend ruff check backend scripts
 uv run --project backend ruff format --check backend scripts
+npm run lint --prefix frontend
+npm run build --prefix frontend
+npm run typecheck --prefix frontend
+cd frontend
+npx playwright install chromium
+npm run test:e2e
+cd ..
 ```
+
+With Docker running, use `python scripts/check_docker.py` to verify its endpoints.
+GitHub Actions runs backend, frontend and Docker jobs on pushes and pull requests.
+Local Linux verification passed 124 backend tests, plus the separate PostgreSQL
+integration check, and 22 browser tests. Browser tests use mocked API fixtures.
+[CI details](docs/milestone-12.md)
 
 The normal suite generates original tiny PDFs in temporary directories and uses
 SQLite with foreign keys enabled for database-backed API tests. PostgreSQL is the
@@ -267,6 +313,25 @@ The test creates and removes only its own randomly named schema, checks migratio
 in both directions, compares ORM metadata, exercises the vector type, and verifies
 upload/search/delete with cascading chunks. It may install the vector extension in `public`
 and deliberately leaves that shared extension installed.
+
+## Evaluation and benchmark results
+
+The November 12 retrieval run used three original synthetic PDFs and six answerable,
+hand-authored questions. Scores below are macro averages for labeled passages at K=5.
+
+| Method | Precision | Recall | MRR | nDCG |
+| --- | ---: | ---: | ---: | ---: |
+| BM25 | 0.233 | 1.000 | 0.917 | 0.949 |
+| Dense | 0.200 | 0.917 | 0.917 | 0.898 |
+| Hybrid | 0.233 | 1.000 | 1.000 | 0.987 |
+
+A separate seven-question Qwen2.5 1.5B run was reviewed by Codex against the supplied
+passages. Three responses addressed the question or correctly abstained, and 3 of 11
+attached citations directly supported their claim. Median total request latency was
+4.01 seconds and p95 was 37.26 seconds across seven latency samples, including the
+first query. These small synthetic runs provide a reproducible baseline for improving
+the system. General research-paper quality and the real cross-encoder comparison
+remain unmeasured. [Methods, reproduction commands and limitations](docs/evaluation.md)
 
 ## Engineering Decisions
 
@@ -335,10 +400,15 @@ applied. Arbitrary model compatibility is not guaranteed. See [retrieval notes](
 | 10 | Broader testing and quality | Backend regression tests, frontend ESLint, TypeScript, production build and desktop/mobile checks enforced in CI |
 | 11 | Full Docker Compose stack | Built and verified locally with PostgreSQL, real embeddings, cited answers and restart persistence |
 | 12 | GitHub Actions | Backend, frontend and full Docker startup/restart checks configured on pushes and pull requests |
-| 13 | Final documentation | Planned |
+| 13 | Final documentation | Architecture, retrieval, API, evaluation, setup and limitations documented |
 
 Screenshots show the actual local demo. A demo recording and broader generation evaluation
 remain pending; see [the small synthetic evaluation](docs/evaluation.md).
+
+Remaining work includes stronger answer and citation quality, real cross-encoder
+measurement, evaluation on a larger independently labeled corpus, and a demo recording.
+Multi-user authentication, deployment hardening and larger-corpus indexing remain
+future scope.
 
 ## Contributing and license
 

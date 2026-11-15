@@ -1,4 +1,4 @@
-# API contract — Milestone 3
+# ScholarGraph API contract
 
 All endpoints are under `/api`. No authentication is implemented; run locally only.
 Errors use `{"detail":"..."}`; request-schema errors use FastAPI's structured detail list.
@@ -101,7 +101,7 @@ Empty collections/unknown paper filters return 200 with no results. Dense/hybrid
 require a functioning model. Model failures return 503, with no silent lexical-only
 fallback. BM25 does not load the model and can run with an empty model cache.
 
-## Demo answers and source files
+## Answers and source files
 
 `POST /api/chat/query` accepts `question` (1–2000 characters), `paper_ids`,
 `top_k` (1–12, default 6), and `mode` (default hybrid). Returns `answer`,
@@ -118,6 +118,8 @@ it does not assert that the model is loaded or available.
 
 Chat responses additionally expose `retrieval_ms` (search plus evidence preparation),
 `generation_ms` (provider call including any cold load), and `evidence_count`.
+They also include `embedding_ms` and `search_ms` for the underlying search stages.
+`retrieval_ms` includes search and evidence preparation, so these timings overlap.
 The service retrieves at most `min(50, 3 * top_k)` candidates and retains at most
 `top_k` substantive, unique excerpts under the existing 16,000-character total and
 4,000-character per-passage limits. New uploads record the origin of the title in
@@ -137,6 +139,12 @@ support the answer. Use `scripts/evaluate_qa.py` for opt-in local-model verifica
 it creates a temporary synthetic corpus and does not alter the user's library.
 
 ## POST /compare
+
+Search, chat and comparison accept `rerank` (boolean, default false). Reranking
+requires a configured cross-encoder. Search results then use
+`score_type: cross_encoder`, and diagnostics add `retrieval_rank`, `retrieval_score` and
+`reranker_score`. Search and chat responses include `rerank_ms`,
+`reranked_count` and `reranker_model`; comparison exposes these in its answer cells.
 
 `POST /api/compare` accepts 2–4 distinct ready paper UUIDs and a topic:
 
